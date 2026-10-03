@@ -1,0 +1,120 @@
+:root {
+  /* ── Canvas & Surfaces ── */
+  --echo-void: #0d1117;
+  --echo-pure-black: #0d1117;
+  --echo-surface: #161b22;
+  --echo-surface-raised: #161b22;
+  --echo-card: #161b22;
+
+  /* ── Text Hierarchy ── */
+  --echo-white: #c9d1d9;
+  --echo-ghost-white: #8b949e;
+  --echo-whisper-white: #6e7681;
+  --echo-phantom-white: rgba(201, 209, 217, 0.2);
+  --echo-muted-smoke: #484f58;
+
+  /* ── Accents ── */
+  --echo-accent: #58a6ff;
+  --echo-cobalt: #1f6feb;
+  --echo-cyan: #58a6ff;
+  --echo-signal-blue: #58a6ff;
+  --echo-ocean-blue: #58a6ff;
+  --echo-cyan-12: rgba(88, 166, 255, 0.12);
+
+  /* ── Border System (solid hex, was rgba mist) ── */
+  --echo-border-12: #30363d;
+  --echo-border-10: #2d333b;
+  --echo-border-08: #21262d;
+  --echo-border-06: #1c2128;
+  --echo-border-04: #161b22;
+
+  /* ── Font ── */
+  --echo-font: 'Cascadia Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
+
+  /* ── Typography Scale ── */
+  --echo-text-hero: 64px;
+  --echo-text-hero-lh: 0.87;
+  --echo-text-section: 48px;
+  --echo-text-section-lh: 1.0;
+  --echo-text-sub-large: 40px;
+  --echo-text-sub: 28px;
+  --echo-text-card-title: 24px;
+  --echo-text-card-title-lh: 1.2;
+  --echo-text-feature: 20px;
+  --echo-text-body-large: 18px;
+  --echo-text-body: 16px;
+  --echo-text-body-lh: 1.5;
+  --echo-text-body-small: 15px;
+  --echo-text-caption: 14px;
+  --echo-text-label: 13px;
+  --echo-text-micro: 12px;
+  --echo-text-micro-ls: 0.3px;
+
+  /* ── Spacing (8px base) ── */
+  --echo-space-1: 1px;
+  --echo-space-2: 2px;
+  --echo-space-4: 4px;
+  --echo-space-6: 6px;
+  --echo-space-8: 8px;
+  --echo-space-10: 10px;
+  --echo-space-12: 12px;
+  --echo-space-14: 14px;
+  --echo-space-16: 16px;
+  --echo-space-20: 20px;
+  --echo-space-24: 24px;
+  --echo-space-28: 28px;
+  --echo-space-32: 32px;
+  --echo-space-40: 40px;
+
+  /* ── Border Radius ── */
+  --echo-radius-none: 0px;
+  --echo-radius-sm: 2px;
+  --echo-radius-control: 6px;
+  --echo-radius-card: 8px;
+  --echo-radius-md: 8px;
+  --echo-radius-pill: 37px;
+  --echo-radius-full: 9999px;
+
+  /* ── Elevation ── */
+  --echo-shadow-brutalist: 4px 4px 0px 0px rgba(0, 0, 0, 0.15);
+  --echo-shadow-floating: 0px 8px 32px rgba(0, 0, 0, 0.5);
+
+  /* ── Cyan Glow ── */
+  --echo-glow-cyan: radial-gradient(circle, rgba(0, 255, 255, 0.08) 0%, transparent 70%);
+  --echo-glow-cobalt: radial-gradient(circle, rgba(0, 7, 205, 0.25) 0%, rgba(0, 255, 255, 0.08) 40%, transparent 70%);
+
+  /* ── Transitions ── */
+  --echo-transition-fast: 0.15s ease;
+  --echo-transition-normal: 0.2s ease;
+}
+
+/* ── Light Theme Override ── */
+[data-theme="light"] {
+  --echo-void: #ffffff;
+  --echo-pure-black: #f6f8fa;
+  --echo-surface: #f6f8fa;
+  --echo-surface-raised: #ffffff;
+  --echo-card: #ffffff;
+
+  --echo-white: #1f2328;
+  --echo-ghost-white: #656d76;
+  --echo-whisper-white: #8c959f;
+  --echo-phantom-white: rgba(31, 35, 40, 0.2);
+  --echo-muted-smoke: #afb8c1;
+
+  --echo-accent: #0969da;
+  --echo-cobalt: #0969da;
+  --echo-cyan: #0969da;
+  --echo-signal-blue: #0969da;
+  --echo-ocean-blue: #218bff;
+  --echo-cyan-12: rgba(9, 105, 218, 0.12);
+
+  --echo-border-12: #d0d7de;
+  --echo-border-10: #d8dee4;
+  --echo-border-08: #e1e4e8;
+  --echo-border-06: #eaeef2;
+  --echo-border-04: #f6f8fa;
+
+  --echo-shadow-brutalist: 4px 4px 0px 0px rgba(0, 0, 0, 0.08);
+  --echo-shadow-floating: 0px 8px 32px rgba(0, 0, 0, 0.15);
+}

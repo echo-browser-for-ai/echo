@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en" data-echo-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Support Echo</title>
+    <meta name="color-scheme" content="dark light" />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      @font-face {
+        font-family: "Cascadia Mono";
+        src:
+          local("Cascadia Mono"), local("Cascadia Code"),
+          local("Cascadia Mono PL");
+        font-weight: 400;
+      }
+      @font-face {
+        font-family: "Cascadia Mono";
+        src: local("Cascadia Mono SemiBold"), local("Cascadia Code SemiBold");
+        font-weight: 600;
+      }
+      @font-face {
+        font-family: "Cascadia Mono";
+        src: local("Cascadia Mono Bold"), local("Cascadia Code Bold");
+        font-weight: 700;
+      }
+
+      :root {
+        --bg: #1a1b1e;
+        --text: #c1c2c5;
+        --sub: #909296;
+        --card-bg: #25262b;
+        --card-hover: #2c2e33;
+        --border: #373a40;
+        --accent: #7950f2;
+        --accent-hover: #6741d9;
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #ffffff;
+          --text: #1a1b1e;
+          --sub: #868e96;
+          --card-bg: #f8f9fa;
+          --card-hover: #f1f3f5;
+          --border: #dee2e6;
+          --accent: #6741d9;
+          --accent-hover: #5a32c4;
+          --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+      }
+
+      body {
+        font-family:
+          "Cascadia Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 40px 24px 24px;
+      }
+
+      .container {
+        max-width: 700px;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      /* ── Header ── */
+      header {
+        text-align: center;
+      }
+      h1 {
+        font-family:
+          "Cascadia Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+        font-size: 24px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        color: var(--text);
+      }
+      .subtitle {
+        color: var(--sub);
+        font-size: 13px;
+        line-height: 1.6;
+        margin-top: 6px;
+      }
+
+      /* ── Cards ── */
+      .card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+      }
+      .card h2 {
+        font-family:
+          "Cascadia Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
+        letter-spacing: -0.3px;
+      }
+      .card p {
+        color: var(--sub);
+        font-size: 13px;
+        text-align: center;
+        line-height: 1.5;
+      }
+
+      /* ── QR ── */
+      .qr-wrap {
+        background: #fff;
+        border-radius: 10px;
+        padding: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .qr-wrap img {
+        display: block;
+        width: auto;
+        height: auto;
+        max-width: 300px;
+        border-radius: 6px;
+      }
+
+      /* ── Address ── */
+      .address {
+        font-family:
+          "Cascadia Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+        font-size: 11px;
+        color: var(--sub);
+        word-break: break-all;
+        text-align: center;
+        background: var(--bg);
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        width: 100%;
+        user-select: all;
+        line-height: 1.6;
+      }
+
+      /* ── Buttons ── */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: 38px;
+        padding: 0 18px;
+        border-radius: 8px;
+        border: none;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        transition:
+          background 0.15s,
+          transform 0.1s,
+          box-shadow 0.15s;
+        font-family: inherit;
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+      }
+      .btn:active {
+        transform: translateY(0);
+      }
+
+      .btn-primary {
+        background: var(--accent);
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(121, 80, 242, 0.3);
+      }
+      .btn-primary:hover {
+        background: var(--accent-hover);
+        box-shadow: 0 4px 14px rgba(121, 80, 242, 0.45);
+      }
+
+      .btn-outline {
+        background: transparent;
+        color: var(--accent);
+        border: 1.5px solid var(--accent);
+      }
+      .btn-outline:hover {
+        background: rgba(121, 80, 242, 0.08);
+      }
+
+      /* ── Footer ── */
+      .footer {
+        text-align: center;
+        color: var(--sub);
+        font-size: 11px;
+        font-family:
+          "Cascadia Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+        padding-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Support Echo</h1>
+        <p class="subtitle">
+          If Echo helps you build, consider supporting its development.
+        </p>
+      </header>
+
+      <div class="card">
+        <h2>Binance (BNB Chain)</h2>
+        <div class="qr-wrap">
+          <img src="binance-bnb-qr.jpg" alt="Binance BNB QR Code" />
+        </div>
+        <div class="address" id="bnb-address">
+          0x68467d7304e2b746441ea52597f3844d6b05ebfc
+        </div>
+        <button class="btn btn-outline" onclick="copyAddress()" id="copy-btn">
+          Copy Address
+        </button>
+      </div>
+
+      <div class="card">
+        <h2>Patreon</h2>
+        <p>Early access to features and ongoing support.</p>
+        <a
+          class="btn btn-primary"
+          href="https://www.patreon.com/cw/xiar_drp"
+          target="_blank"
+          >Support on Patreon</a
+        >
+      </div>
+
+      <p class="footer">&mdash; Echo</p>
+    </div>
+
+    <script>
+      function copyAddress() {
+        var addr = document.getElementById("bnb-address").textContent;
+        var btn = document.getElementById("copy-btn");
+        var orig = btn.textContent;
+        navigator.clipboard
+          .writeText(addr)
+          .then(function () {
+            btn.textContent = "Copied";
+            btn.style.color = "#51cf66";
+            btn.style.borderColor = "#51cf66";
+            setTimeout(function () {
+              btn.textContent = orig;
+              btn.style.color = "";
+              btn.style.borderColor = "";
+            }, 1800);
+          })
+          .catch(function () {
+            var ta = document.createElement("textarea");
+            ta.value = addr;
+            ta.style.position = "fixed";
+            ta.style.opacity = "0";
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand("copy");
+            document.body.removeChild(ta);
+            btn.textContent = "Copied";
+            btn.style.color = "#51cf66";
+            btn.style.borderColor = "#51cf66";
+            setTimeout(function () {
+              btn.textContent = orig;
+              btn.style.color = "";
+              btn.style.borderColor = "";
+            }, 1800);
+          });
+      }
+    </script>
+  </body>
+</html>

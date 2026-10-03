@@ -1,0 +1,64 @@
+// @see - https://www.electron.build/configuration/configuration
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.echo.app",
+  "asar": true,
+  "productName": "Echo",
+  "icon": "public/icon.ico",
+  "directories": {
+    "output": "release/EchoSetup"
+  },
+  // Public GitHub repo where electron-updater finds new versions.
+  // No auth token needed (public repo). electron-builder's CI flow
+  // uploads via GH_TOKEN (RELEASE_PAT in CI).
+  "publish": {
+    "provider": "github",
+    "owner": "echo-browser-for-ai",
+    "repo": "echo"
+  },
+  "files": [
+    "dist",
+    "dist-electron"
+  ],
+  "extraResources": [
+    { "from": "installer/initial_preferences", "to": "chromium/initial_preferences" },
+    { "from": "build/installer/resources/chromium", "to": "chromium" },
+    { "from": "build/installer/resources/node.exe", "to": "node.exe" },
+    { "from": "build/installer/resources/node_modules", "to": "node_modules" },
+    { "from": "build/installer/resources/echo-mcp-launcher.js", "to": "echo-mcp-launcher.js" },
+    { "from": "electron/mcp-shared.mjs", "to": "mcp-shared.mjs" },
+    { "from": "build/installer/resources/echo-mcp-cleanup.mjs", "to": "echo-mcp-cleanup.mjs" },
+    { "from": "build/installer/resources/echo-extension", "to": "echo-extension" },
+    { "from": "build/installer/resources/echo-extension.crx", "to": "echo-extension.crx" },
+    { "from": "build/installer/resources/echowin.exe", "to": "echowin.exe" }
+  ],
+  "extraFiles": [
+    { "from": "installer/cleanup-mcp.bat", "to": "cleanup-mcp.bat" }
+  ],
+  "mac": {
+    "icon": "public/icon.png",
+    "target": ["dmg"],
+    "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
+  },
+  "win": {
+    "icon": "public/icon.ico",
+    "target": [{
+      "target": "nsis",
+      "arch": ["x64"]
+    }],
+    "artifactName": "${productName}-Windows-${version}-Setup.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "include": "installer/nsh/hooks.nsh",
+    "deleteAppDataOnUninstall": false,
+    "installerIcon": "public/icon.ico",
+    "uninstallerIcon": "public/icon.ico"
+  },
+  "linux": {
+    "target": ["AppImage"],
+    "artifactName": "${productName}-Linux-${version}.${ext}"
+  }
+}

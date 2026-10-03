@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings</title>
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --border: #30363d;
+  --text: #c9d1d9; --text-muted: #8b949e; --accent: #58a6ff;
+}
+[data-theme="light"] {
+  --bg: #ffffff; --surface: #f6f8fa; --border: #d0d7de;
+  --text: #1f2328; --text-muted: #656d76; --accent: #0969da;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg); color: var(--text); min-height: 100vh;
+}
+.container { max-width: 720px; margin: 0 auto; padding: 40px 24px; }
+h1 { font-size: 28px; font-weight: 300; margin-bottom: 32px; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 20px; margin-bottom: 16px;
+}
+.card h2 { font-size: 14px; font-weight: 600; margin-bottom: 16px; color: var(--text); }
+.setting-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.setting-row:last-child { border-bottom: none; }
+.setting-label { font-size: 13px; }
+.setting-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+/* Toggle switch */
+.toggle { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--border); border-radius: 22px; transition: 0.2s;
+}
+.toggle-slider:before {
+  content: ""; position: absolute; height: 16px; width: 16px;
+  left: 3px; bottom: 3px; background: var(--text); border-radius: 50%; transition: 0.2s;
+}
+.toggle input:checked + .toggle-slider { background: var(--accent); }
+.toggle input:checked + .toggle-slider:before { transform: translateX(18px); background: #fff; }
+/* Segmented control */
+.seg { display: inline-flex; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 2px; }
+.seg button {
+  background: transparent; border: none; color: var(--text-muted);
+  padding: 4px 12px; font-size: 12px; cursor: pointer; border-radius: 4px; transition: 0.15s;
+}
+.seg button.active { background: var(--accent); color: #fff; }
+.about { text-align: center; padding: 20px; color: var(--text-muted); font-size: 13px; }
+.mcp-status-grid { margin: 12px 0; }
+.mcp-status-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; font-size: 12px;
+}
+.mcp-status-row .name { color: var(--text); }
+.mcp-status-row .status { font-size: 11px; }
+.mcp-status-row .status.ok { color: #3fb950; }
+.mcp-status-row .status.no { color: var(--text-muted); }
+.mcp-status-row .status.err { color: #f85149; }
+.mcp-btn {
+  background: var(--accent); color: #fff; border: none;
+  padding: 6px 16px; border-radius: 6px; font-size: 12px;
+  cursor: pointer; margin-right: 8px; transition: 0.15s;
+}
+.mcp-btn:hover { opacity: 0.85; }
+.mcp-btn.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+.mcp-output {
+  margin-top: 8px; padding: 8px 12px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 4px;
+  font-size: 11px; color: var(--text-muted);
+  font-family: 'SF Mono', Consolas, monospace; white-space: pre-wrap;
+  display: none;
+}
+.mcp-output.show { display: block; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Settings</h1>
+
+  <div class="card">
+    <h2>General</h2>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Theme</div>
+        <div class="setting-desc">Dark or light appearance</div>
+      </div>
+      <div class="seg" id="theme-seg">
+        <button data-val="dark" class="active">Dark</button>
+        <button data-val="light">Light</button>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Bookmark bar</div>
+        <div class="setting-desc">When to show the bookmark bar</div>
+      </div>
+      <div class="seg" id="bar-seg">
+        <button data-val="always">Always</button>
+        <button data-val="newtab">New tab</button>
+        <button data-val="hidden">Hidden</button>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div><div class="setting-label">Start with Windows</div><div class="setting-desc">Auto-start on login</div></div>
+      <label class="toggle"><input type="checkbox" id="openAtLogin"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <div><div class="setting-label">Hide on close</div><div class="setting-desc">Close sends to tray</div></div>
+      <label class="toggle"><input type="checkbox" id="hideOnClose"><span class="toggle-slider"></span></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Privacy</h2>
+    <div class="setting-row">
+      <div><div class="setting-label">Hide browser identity</div><div class="setting-desc">Spoof User-Agent to look like Chrome</div></div>
+      <label class="toggle"><input type="checkbox" id="spoofUA"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <div><div class="setting-label">Hide automation flag</div><div class="setting-desc">Remove navigator.webdriver</div></div>
+      <label class="toggle"><input type="checkbox" id="hideWebdriver"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <div><div class="setting-label">Do Not Track</div><div class="setting-desc">Send DNT header</div></div>
+      <label class="toggle"><input type="checkbox" id="doNotTrack"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <div><div class="setting-label">Block popups</div><div class="setting-desc">Block popup windows</div></div>
+      <label class="toggle"><input type="checkbox" id="blockPopups"><span class="toggle-slider"></span></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>AI</h2>
+    <div class="setting-row">
+      <div><div class="setting-label">Auto-share sessions</div><div class="setting-desc">Share cookies with AI agent</div></div>
+      <label class="toggle"><input type="checkbox" id="autoShareSessions"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <div><div class="setting-label">Vision enabled</div><div class="setting-desc">Allow AI to see screen</div></div>
+      <label class="toggle"><input type="checkbox" id="visionEnabled"><span class="toggle-slider"></span></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>AI Tool Integration</h2>
+    <div class="setting-desc" style="margin-bottom: 12px;">
+      Register Echo as an MCP server in your AI coding tools (Claude, Cursor, OpenCode, etc.)
+    </div>
+    <div class="mcp-status-grid" id="mcp-status-grid">
+      <div class="setting-desc">Loading status…</div>
+    </div>
+    <div style="margin-top: 12px;">
+      <button class="mcp-btn" id="mcp-register-btn">Re-register</button>
+      <button class="mcp-btn secondary" id="mcp-unregister-btn">Unregister</button>
+    </div>
+    <div class="mcp-output" id="mcp-output"></div>
+  </div>
+
+  <div class="card">
+    <h2>Advanced</h2>
+    <div class="setting-row">
+      <div><div class="setting-label">Developer mode</div><div class="setting-desc">Show debug info</div></div>
+      <label class="toggle"><input type="checkbox" id="developerMode"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <div><div class="setting-label">Experimental features</div><div class="setting-desc">Enable beta features</div></div>
+      <label class="toggle"><input type="checkbox" id="experimentalFeatures"><span class="toggle-slider"></span></label>
+    </div>
+  </div>
+
+  <div class="about">
+    <p>Echo — Browser for your AI Agent</p>
+    <p style="margin-top:4px;">Version 1.0.0</p>
+  </div>
+</div>
+
+<script>
+var checkboxes = ['openAtLogin','hideOnClose','spoofUA','hideWebdriver','doNotTrack','blockPopups','autoShareSessions','visionEnabled','developerMode','experimentalFeatures']
+
+window.api.settings.get().then(function(s) {
+  // Apply theme
+  if (s.theme === 'light') document.documentElement.setAttribute('data-theme', 'light')
+
+  // Checkboxes
+  checkboxes.forEach(function(key) {
+    var el = document.getElementById(key)
+    if (el) el.checked = !!s[key]
+  })
+
+  // Theme segmented
+  var themeBtns = document.querySelectorAll('#theme-seg button')
+  themeBtns.forEach(function(btn) {
+    if (btn.dataset.val === (s.theme || 'dark')) { btn.classList.add('active') } else { btn.classList.remove('active') }
+    btn.onclick = function() {
+      themeBtns.forEach(function(b) { b.classList.remove('active') })
+      btn.classList.add('active')
+      var val = btn.dataset.val
+      window.api.settings.set('theme', val)
+      document.documentElement.setAttribute('data-theme', val)
+    }
+  })
+
+  // Bookmark bar segmented
+  var barBtns = document.querySelectorAll('#bar-seg button')
+  var barVal = s.showBookmarkBar === 'always' || s.showBookmarkBar === 'newtab' || s.showBookmarkBar === 'hidden' ? s.showBookmarkBar : 'always'
+  barBtns.forEach(function(btn) {
+    if (btn.dataset.val === barVal) { btn.classList.add('active') } else { btn.classList.remove('active') }
+    btn.onclick = function() {
+      barBtns.forEach(function(b) { b.classList.remove('active') })
+      btn.classList.add('active')
+      window.api.settings.set('showBookmarkBar', btn.dataset.val)
+    }
+  })
+}).catch(function(e) { console.error('Settings load failed:', e) })
+
+checkboxes.forEach(function(key) {
+  var el = document.getElementById(key)
+  if (el) el.onchange = function() {
+    window.api.settings.set(key, el.checked).catch(function() {})
+  }
+})
+
+// ── MCP Integration ──────────────────────────────────
+var mcpGrid = document.getElementById('mcp-status-grid')
+var mcpOutput = document.getElementById('mcp-output')
+
+function loadMcpStatus() {
+  mcpGrid.innerHTML = '<div class="setting-desc">Loading status…</div>'
+  window.api.mcp.status().then(function(result) {
+    if (!result.success && !result.output) {
+      mcpGrid.innerHTML = '<div class="setting-desc">Dev mode — status unavailable</div>'
+      return
+    }
+    // Parse the status output (lines like "Client Name         ✓ Configured")
+    var lines = result.output.trim().split('\n')
+    var html = ''
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim()
+      if (!line || line.startsWith('─') || line.startsWith('Client')) continue
+      var match = line.match(/^(.+?)\s+(✓|✗|No).+$/)
+      if (match) {
+        var name = match[1].trim()
+        var statusChar = match[2]
+        var cls = statusChar === '✓' ? 'ok' : 'no'
+        var label = statusChar === '✓' ? 'Configured' : 'Not configured'
+        html += '<div class="mcp-status-row"><span class="name">' + name + '</span><span class="status ' + cls + '">' + label + '</span></div>'
+      }
+    }
+    if (!html) {
+      // Show raw output if parsing fails
+      html = '<div class="setting-desc">' + result.output.replace(/</g, '&lt;') + '</div>'
+    }
+    mcpGrid.innerHTML = html
+  })
+}
+
+function showMcpOutput(text, isError) {
+  mcpOutput.textContent = text
+  mcpOutput.classList.add('show')
+  mcpOutput.style.color = isError ? '#f85149' : 'var(--text-muted)'
+}
+
+document.getElementById('mcp-register-btn').onclick = function() {
+  this.textContent = 'Registering…'
+  this.disabled = true
+  window.api.mcp.register().then(function(result) {
+    document.getElementById('mcp-register-btn').textContent = 'Re-register'
+    document.getElementById('mcp-register-btn').disabled = false
+    showMcpOutput(result.output || (result.success ? 'Success' : 'Failed'), !result.success)
+    loadMcpStatus() // refresh
+  })
+}
+
+document.getElementById('mcp-unregister-btn').onclick = function() {
+  this.textContent = 'Removing…'
+  this.disabled = true
+  window.api.mcp.unregister().then(function(result) {
+    document.getElementById('mcp-unregister-btn').textContent = 'Unregister'
+    document.getElementById('mcp-unregister-btn').disabled = false
+    showMcpOutput(result.output || (result.success ? 'Success' : 'Failed'), !result.success)
+    loadMcpStatus() // refresh
+  })
+}
+
+// Load status on page open
+loadMcpStatus()
+
+// Listen for live theme changes from other tabs (toolbar toggle, etc.)
+if (window.api && window.api.settings && window.api.settings.onThemeChanged) {
+  window.api.settings.onThemeChanged(function(theme) {
+    document.documentElement.setAttribute('data-theme', theme)
+    // Update the theme segmented control visually
+    var themeBtns = document.querySelectorAll('#theme-seg button')
+    themeBtns.forEach(function(btn) {
+      if (btn.dataset.val === theme) { btn.classList.add('active') } else { btn.classList.remove('active') }
+    })
+  })
+}
+</script>
+</body>
+</html>

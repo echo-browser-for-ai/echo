@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Echo — New Tab</title>
+  <meta name="color-scheme" content="dark light">
+  <link rel="stylesheet" href="newtab.css">
+</head>
+<body>
+  <a class="support-btn" id="support-btn" title="Support Echo">Support</a>
+  <main class="ntp">
+    <div class="brand">
+      <img src="echo-logo.png" alt="Echo" class="logo" width="64" height="64">
+      <h1 class="wordmark">Echo</h1>
+      <p class="tagline">Browser for AI</p>
+    </div>
+    <form id="search-form" class="search" autocomplete="off">
+      <input id="search-input" type="text" placeholder="Search Google or type a URL" autofocus>
+    </form>
+    <div id="shortcuts" class="shortcuts"></div>
+  </main>
+  <div id="modal" class="modal-overlay" hidden>
+    <div class="modal">
+      <h3 id="modal-title">Add shortcut</h3>
+      <input id="s-name" type="text" placeholder="Name" autocomplete="off">
+      <input id="s-url" type="text" placeholder="URL" autocomplete="off">
+      <div class="modal-actions">
+        <button type="button" id="modal-cancel" class="btn ghost">Cancel</button>
+        <button type="button" id="modal-save" class="btn primary">Save</button>
+      </div>
+    </div>
+  </div>
+  <footer class="footer">Echo — Browser for AI</footer>
+  <script src="echo-config.js"></script>
+  <script src="newtab.js"></script>
+</body>
+</html>

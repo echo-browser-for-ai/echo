@@ -1,0 +1,15 @@
+node_modules/
+dist/
+dist-electron/
+release/
+build/installer/resources/
+deleted/
+*.dmp
+*.log
+.env
+Personal-Files/
+.playwright-mcp/
+dev-server.*
+test-output/
+.vscode/
+.pi-subagents/

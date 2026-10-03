@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Echo New Tab",
+  "version": "0.1.0",
+  "description": "Echo-branded new tab page",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA+NWy2JSCL0gKb6LQq8pVcsPC/P8p/mqe/jcS9k6KwLsYHyBxOympI/8CPGS8tGNgclzsnoHLT7MwdTFYujhcoYAIdL7g9NB1vmC3sfQZrQ6DmUHqHXpwNXFhy0A5iOSKhi+LuykY39JwBGekHhuW3mdoOnZjivZ97dG6P4WYBYs+LgnAKtYSIqTRyM0FjuswchUZnGdiSxXNzJ+K6J1psq8PFWJLdNvIlTc34np4XlW+GwP28/kg3qv6p0Zci9ppMi+ILJlLgjNtIOKoHqZsOZZKKvHL0PFkiVsFJnBtSoapOOEdNdmsG8B5zWV0UZzW2CIvmz/2bsV5tWNl0R80YwIDAQAB",
+  "permissions": ["tabs"],
+  "host_permissions": ["http://127.0.0.1:*/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  }
+}
