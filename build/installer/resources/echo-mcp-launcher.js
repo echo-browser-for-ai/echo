@@ -11,10 +11,14 @@
  *   3. If dead, find Chromium's ACTUAL live CDP port: locate EchoBrowser.exe
  *      via tasklist, then its 127.0.0.1 LISTENING ports via netstat, and probe
  *      each for /json/version. Use the first that responds.
- *   4. If nothing is alive → exit 1 (no browser running).
+ *   4. If nothing is alive, wake Echo itself by launching Echo.exe — the tray
+ *      app starts Chromium and writes the lockfile — then poll for up to 30s.
+ *      Required because AI apps spawn this launcher at THEIR own startup, often
+ *      before Echo is running, and most never retry a server that failed once.
+ *   5. Only if that still fails: exit 1 (the browser genuinely could not start).
  */
 
-const { readFileSync } = require('fs');
+const { readFileSync, existsSync } = require('fs');
 const { join } = require('path');
 const { homedir } = require('os');
 const http = require('http');
@@ -82,10 +86,55 @@ async function resolveCdpPort() {
   return 0;
 }
 
+/** Where Echo.exe sits relative to this launcher in the installed app. */
+const ECHO_APP_EXE = join(__dirname, '..', 'Echo.exe');
+const WAKE_TIMEOUT_MS = 30000;
+const WAKE_POLL_MS = 1000;
+
+function startEchoApp() {
+  if (!existsSync(ECHO_APP_EXE)) return false;
+  try {
+    // Detached, stdio ignored: the app must outlive this launcher and must never
+    // write into the MCP stdio pipe. If Echo is already running, Windows' single-
+    // instance lock bounces this to the running copy, which relaunches Chromium —
+    // so this also recovers a live tray app whose browser has died.
+    const child = spawn(ECHO_APP_EXE, [], { detached: true, stdio: 'ignore' });
+    child.unref();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolve a CDP port, waking Echo if no browser is running.
+ *
+ * AI apps spawn this launcher when THEY start, which is often before the user has
+ * opened Echo. The launcher used to exit immediately in that case, and most AI
+ * apps do not retry a failed MCP server — so Echo looked permanently broken until
+ * the AI app was restarted. Starting Echo here removes that race entirely.
+ */
+async function resolveCdpPortOrWake() {
+  const found = await resolveCdpPort();
+  if (found) return found;
+
+  if (!startEchoApp()) return 0;
+  console.error('[echo] no running browser - started Echo, waiting for it to come up...');
+
+  const deadline = Date.now() + WAKE_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, WAKE_POLL_MS));
+    const port = await resolveCdpPort();
+    if (port) return port;
+  }
+  return 0;
+}
+
 (async () => {
-  const cdpPort = await resolveCdpPort();
+  const cdpPort = await resolveCdpPortOrWake();
   if (!cdpPort) {
-    // No live Chromium — exit so the AI agent reports a clean error instead of hanging.
+    // Nothing came up — exit so the AI agent reports a clean error instead of hanging.
+    console.error('[echo] no browser available - Echo could not be started');
     process.exit(1);
   }
 

@@ -2,6 +2,11 @@
 
 All notable changes to Echo are documented here. Installers are on the [Releases page](https://github.com/echo-browser-for-ai/echo/releases).
 
+## 0.2.4 — 2026-10-07
+- Fixed: if an AI app started before Echo was running, the connection failed with `process exited with code 1` and stayed broken until the AI app itself was restarted. Echo now starts itself and waits for the browser to come up.
+- Cleanup: removed an unused background service worker and the `tabs` permission from the bundled new-tab extension.
+- Docs: README rewritten with accurate build instructions, supported apps, and support details.
+
 ## 0.2.3 — 2026-10-04
 - New Tab: the default Echo shortcut now points at the public repository; shortcuts saved with the old link are repaired automatically on launch.
 
