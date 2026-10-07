@@ -2,6 +2,14 @@
 
 All notable changes to Echo are documented here. Installers are on the [Releases page](https://github.com/echo-browser-for-ai/echo/releases).
 
+## 0.2.5 — 2026-10-07
+### Fixed (important)
+- **Updating Echo no longer deletes your browsing data.** The uninstaller was wiping the browser profile, and Windows runs the uninstaller when installing a new version over an old one — so every update signed you out of every site, cleared history, and removed your new-tab shortcuts. The destructive step has been removed, with a comment explaining why it must not come back. Browsing data is now only cleared when you ask for it, via **Settings → Advanced → Clear browsing data**.
+- Note for anyone already on 0.2.3/0.2.4: the next update runs the *currently installed* uninstaller, so that one update will still clear your data. From 0.2.5 onwards it is fixed permanently.
+
+### Also
+- Browsing data is kept when Echo is uninstalled (matching the existing `deleteAppDataOnUninstall: false` intent).
+
 ## 0.2.4 — 2026-10-07
 - Fixed: if an AI app started before Echo was running, the connection failed with `process exited with code 1` and stayed broken until the AI app itself was restarted. Echo now starts itself and waits for the browser to come up.
 - Cleanup: removed an unused background service worker and the `tabs` permission from the bundled new-tab extension.

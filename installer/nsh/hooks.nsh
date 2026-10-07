@@ -25,7 +25,7 @@
 !macroend
 
 !macro customUnInit
-  ; Kill the browser process FIRST so it doesn't hold file locks during the wipe.
+  ; Kill the browser process FIRST so it doesn't hold file locks during uninstall.
   nsExec::ExecToLog 'cmd /c taskkill /f /im EchoBrowser.exe /T 2>nul & exit 0'
   ; Run MCP config CLEANUP at the very start of uninstall, BEFORE any files are
   ; deleted. At this point $INSTDIR\resources\node.exe and the cleanup script
@@ -38,17 +38,15 @@
     FileWrite $1 "MCP cleanup exited with code: $0$\r$\n"
     FileClose $1
   ${endif}
-  ; Wipe Echo's browsing data (history/cookies/tiles/bookmarks) so reinstall
-  ; is clean. Per-user install means $APPDATA is the real user, not
-  ; Administrator — the wipe now hits the right folder.
-  ; Wipe both casings to be bulletproof (NTFS is case-insensitive).
-  RMDir /r "$APPDATA\echo"
-  RMDir /r "$APPDATA\Echo"
-  ; Delete the first-run marker so the next install is treated as a fresh
-  ; first run (no --restore-last-session). KEEP the rest of ~/.echo.
-  Delete "$PROFILE\.echo\.profile-initialized"
-  ; Belt-and-suspenders: signal Echo to wipe its own profile on next launch
-  ; (runs as the correct user — always reliable even if the above missed).
-  FileOpen $0 "$PROFILE\.echo\.wipe-on-next-launch" w
-  FileClose $0
+  ; ── DO NOT DELETE BROWSING DATA HERE ─────────────────────────────────────
+  ; Windows runs this uninstaller when installing a NEW VERSION over an old
+  ; one, so anything destructive in this macro also runs on EVERY auto-update.
+  ; An earlier version wiped "$APPDATA\Echo" (cookies, logins, history) and
+  ; wrote a ".wipe-on-next-launch" marker into ~/.echo here, which made the
+  ; app wipe its own profile again on the next launch. Net effect: every
+  ; update signed the user out of everything and deleted their new-tab
+  ; shortcuts. That is why it is gone. Do not reintroduce it.
+  ; If a user wants their browsing data cleared, they use the app's own
+  ; "Clear browsing data" button (Settings -> Advanced) — user-initiated only.
+  ; ────────────────────────────────────────────────────────────────────────
 !macroend
