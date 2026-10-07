@@ -23,6 +23,7 @@ import {
 	getChromePid,
 	isChromeWindowHidden,
 	hideChromeWindow,
+	probeChromeWindow,
 	showChromeWindow,
 } from "./chrome.js";
 import { writeLockfile, deleteLockfile } from "./lockfile.js";
@@ -569,58 +570,58 @@ async function main() {
 
 	const trayMenu = Menu.buildFromTemplate([
 		{
-			label: "Show/Hide Browser",
+			label: "Show Browser",
 			click: async () => {
 				try {
 					const port = getCdpPort();
 					if (port === 0) {
 						await launchChrome();
+						await raiseBrowserWindow();
 						return;
 					}
-					if (isChromeWindowHidden()) {
-						// Hidden via SW_HIDE — unhide via echowin, then maximize via CDP.
-						const pid = getChromePid();
-						if (pid > 0) {
-							await showChromeWindow(pid);
-						}
-						const ok = await showChromiumWindowNormal();
+					const pid = getChromePid();
+					const state = await probeChromeWindow(pid);
+					if (state.visible && !state.iconic) {
+						// Already on screen — nothing to restore, just make sure it is in front.
 						await raiseBrowserWindow();
-						if (!ok) {
-							notify("Echo - Error", "Could not restore browser window");
-						}
-					} else {
-						const visible = await isChromiumWindowVisible();
-						if (visible) {
-							// Visible → hide via echowin SW_HIDE (fully gone, no taskbar).
-							const pid = getChromePid();
-							let hidden = false;
-							if (pid > 0) {
-								hidden = await hideChromeWindow(pid);
-							}
-							if (!hidden) {
-								// echowin failed — fall back to CDP minimize (taskbar entry).
-								log(
-									"main",
-									"warn",
-									"echowin hide failed, falling back to CDP minimize",
-								);
-								await hideChromiumWindow();
-							}
-						} else {
-							// Minimized to taskbar — restore + maximize via CDP.
-							const ok = await showChromiumWindowNormal();
-							await raiseBrowserWindow();
-							if (!ok) {
-								notify("Echo - Error", "Could not find browser window");
-							}
-						}
+						return;
+					}
+					if (!state.visible) {
+						// Hidden off-screen by echowin — un-hide it before restoring.
+						await showChromeWindow(pid);
+					}
+					const ok = await showChromiumWindowNormal();
+					await raiseBrowserWindow();
+					if (!ok) {
+						notify("Echo - Error", "Could not restore browser window");
 					}
 				} catch (err) {
-					log("main", "error", "show/hide browser error", { err: String(err) });
-					notify(
-						"Echo - Error",
-						`Show/Hide Browser failed: ${String(err).slice(0, 200)}`,
-					);
+					log("main", "error", "show browser error", { err: String(err) });
+					notify("Echo - Error", `Show Browser failed: ${String(err).slice(0, 200)}`);
+				}
+			},
+		},
+		{
+			label: "Hide Browser",
+			click: async () => {
+				try {
+					const pid = getChromePid();
+					let hidden = false;
+					if (pid > 0) {
+						hidden = await hideChromeWindow(pid);
+					}
+					if (!hidden) {
+						// echowin failed — fall back to CDP minimize (leaves a taskbar entry).
+						log(
+							"main",
+							"warn",
+							"echowin hide failed, falling back to CDP minimize",
+						);
+						await hideChromiumWindow();
+					}
+				} catch (err) {
+					log("main", "error", "hide browser error", { err: String(err) });
+					notify("Echo - Error", `Hide Browser failed: ${String(err).slice(0, 200)}`);
 				}
 			},
 		},

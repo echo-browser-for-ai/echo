@@ -1,7 +1,7 @@
 {
   "name": "echo",
   "private": true,
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "AI uses your browser, with your logins. One-click setup.",
   "type": "module",
   "scripts": {

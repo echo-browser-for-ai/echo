@@ -2,6 +2,12 @@
 
 All notable changes to Echo are documented here. Installers are on the [Releases page](https://github.com/echo-browser-for-ai/echo/releases).
 
+## 0.2.8 — 2026-10-07
+### Fixed
+- **Show/Hide no longer does the opposite of what you asked.** Echo used to ask Chromium whether the window was visible — but Chromium cannot see a window that has been hidden, so it always answered "visible". Combined with a state flag that reset whenever the browser restarted, the toggle could hide a window you were trying to show. Echo now asks the native helper, which reads the real window state from Windows.
+- **The tray menu is now two explicit items — "Show Browser" and "Hide Browser"** — instead of one ambiguous toggle. Each does exactly what it says, and clicking the wrong one is harmless.
+- **The flash when closing to tray is gone.** Chromium was relaunched and left visible (taskbar entry and all) for roughly 700ms before being hidden. It now starts hiding the moment it launches.
+
 ## 0.2.7 — 2026-10-07
 ### Fixed
 - **Tray → Show (and double-clicking the tray icon) now brings the window to the front.** It was being restored but left behind whatever you were looking at, so it seemed like nothing happened until you clicked the taskbar icon. The window is now un-minimised only when it is genuinely minimised — so a maximised window stays maximised — and is then properly activated.

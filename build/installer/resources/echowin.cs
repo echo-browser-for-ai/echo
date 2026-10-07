@@ -13,7 +13,7 @@
 // (csc.exe ships with .NET Framework at C:\Windows\Microsoft.NET\Framework64\v4.0.30319\)
 //
 // USAGE:
-//   echowin.exe <pid> <0=hide | 5=show+activate>
+//   echowin.exe <pid> <0=hide | 1=probe | 5=show+activate>
 // Prints the count of windows it acted on to stdout. Exit 0 if >=1 window was
 // found and acted on, 1 if none were found, 2 on bad args.
 
@@ -57,6 +57,7 @@ public class EchoWin
     private static extern uint GetCurrentThreadId();
 
     private const int SW_HIDE = 0;
+    private const int PROBE = 1;
     private const int SW_SHOW = 5;
     private const int SW_RESTORE = 9;
 
@@ -137,7 +138,7 @@ public class EchoWin
     {
         if (args.Length < 2)
         {
-            Console.Error.WriteLine("Usage: echowin.exe <pid> <0=hide|5=show>");
+            Console.Error.WriteLine("Usage: echowin.exe <pid> <0=hide|1=probe|5=show>");
             return 2;
         }
         if (!uint.TryParse(args[0], out targetPid))
@@ -157,11 +158,22 @@ public class EchoWin
         EnumWindows(Callback, IntPtr.Zero);
 
         int count = 0;
+        bool anyVisible = false;
+        bool anyIconic = false;
         foreach (var h in handles)
         {
             if (action == SW_HIDE)
             {
                 ShowWindow(h, SW_HIDE);
+            }
+            else if (action == PROBE)
+            {
+                // Report the truth about the window. This is the ONLY reliable
+                // source: CDP cannot see ShowWindow(SW_HIDE) at all, so a hidden
+                // window still answers windowState=maximized to Chromium, which
+                // made the tray toggle hide a window the user was trying to show.
+                if (IsWindowVisible(h)) anyVisible = true;
+                if (IsIconic(h)) anyIconic = true;
             }
             else
             {
@@ -171,6 +183,11 @@ public class EchoWin
         }
 
         Console.WriteLine(count);
+        if (action == PROBE)
+        {
+            Console.WriteLine(
+                "visible=" + (anyVisible ? "1" : "0") + " iconic=" + (anyIconic ? "1" : "0"));
+        }
         return count > 0 ? 0 : 1;
     }
 }

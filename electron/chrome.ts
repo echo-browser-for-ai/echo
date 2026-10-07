@@ -132,6 +132,71 @@ export async function showChromeWindow(pid: number): Promise<boolean> {
 	return ok;
 }
 
+/** What the browser window is ACTUALLY doing, according to Windows. */
+export interface ChromeWindowState {
+	/** True if a browser window exists for this process at all. */
+	found: boolean;
+	/** False when the window is hidden with ShowWindow(SW_HIDE). */
+	visible: boolean;
+	/** True when the window is minimised to the taskbar. */
+	iconic: boolean;
+}
+
+/**
+ * Ask the native helper for the real window state.
+ *
+ * Do NOT use `isChromiumWindowVisible()` for this: it asks Chromium over CDP,
+ * and Chromium has no idea when a window has been hidden with SW_HIDE — it still
+ * reports windowState "maximized". Trusting that (plus an in-memory flag that
+ * resets whenever Chromium restarts) made the tray toggle occasionally do the
+ * exact opposite of what the user asked for.
+ */
+export async function probeChromeWindow(
+	pid: number,
+): Promise<ChromeWindowState> {
+	const none: ChromeWindowState = { found: false, visible: false, iconic: false };
+	if (pid <= 0) return none;
+
+	return new Promise<ChromeWindowState>((resolve) => {
+		const child = spawn(echowinExePath(), [String(pid), "1"], {
+			windowsHide: true,
+		});
+		let stdout = "";
+		let stderr = "";
+		child.stdout?.on("data", (chunk: Buffer) => {
+			stdout += chunk.toString("utf-8");
+		});
+		child.stderr?.on("data", (chunk: Buffer) => {
+			stderr += chunk.toString("utf-8");
+		});
+		child.on("close", (exitCode) => {
+			// exit 1 = no window for this PID (not up yet, or already gone).
+			if (exitCode !== 0) {
+				log("chrome", "warn", "echowin probe found no window", {
+					pid,
+					exitCode,
+					stderr: stderr.slice(0, 200),
+				});
+				resolve(none);
+				return;
+			}
+			const state: ChromeWindowState = {
+				found: true,
+				visible: /\bvisible=1\b/.test(stdout),
+				iconic: /\biconic=1\b/.test(stdout),
+			};
+			log("chrome", "debug", "echowin probe", { pid, ...state });
+			resolve(state);
+		});
+		child.on("error", (err) => {
+			log("chrome", "error", "echowin probe spawn error", {
+				err: String(err),
+			});
+			resolve(none);
+		});
+	});
+}
+
 /** True if the Chromium window was hidden via hideChromeWindow(). */
 export function isChromeWindowHidden(): boolean {
 	return windowHidden;
@@ -222,6 +287,14 @@ export async function launchChrome(opts?: {
 		stdio: "ignore",
 		windowsHide: false,
 	});
+
+	// When restarting hidden (close-to-tray), start hiding IMMEDIATELY, in
+	// parallel with the CDP wait below. Waiting for launchChrome() to resolve
+	// left the window — and its taskbar entry — on screen for ~700ms on every
+	// close, which showed up as a flash before it disappeared to the tray.
+	if (hidden && chromeChild.pid) {
+		void hideChromeWindow(chromeChild.pid).catch(() => {});
+	}
 
 	// Watchdog: respawn if Chromium crashes
 	let rapidExitCount = 0;
