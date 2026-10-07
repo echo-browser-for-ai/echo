@@ -555,6 +555,18 @@ async function main() {
 	appTray = new Tray(trayIcon);
 	appTray.setToolTip("Echo");
 
+	/**
+	 * Bring the Chromium window to the front. The echowin helper's "show"
+	 * un-hides (a no-op when already visible) and activates the window.
+	 * Without this the window is restored but stays behind whatever the user is
+	 * looking at, so tray Show and double-click looked like they did nothing
+	 * until the taskbar icon was clicked.
+	 */
+	async function raiseBrowserWindow(): Promise<void> {
+		const pid = getChromePid();
+		if (pid > 0) await showChromeWindow(pid);
+	}
+
 	const trayMenu = Menu.buildFromTemplate([
 		{
 			label: "Show/Hide Browser",
@@ -572,6 +584,7 @@ async function main() {
 							await showChromeWindow(pid);
 						}
 						const ok = await showChromiumWindowNormal();
+						await raiseBrowserWindow();
 						if (!ok) {
 							notify("Echo - Error", "Could not restore browser window");
 						}
@@ -596,6 +609,7 @@ async function main() {
 						} else {
 							// Minimized to taskbar — restore + maximize via CDP.
 							const ok = await showChromiumWindowNormal();
+							await raiseBrowserWindow();
 							if (!ok) {
 								notify("Echo - Error", "Could not find browser window");
 							}
@@ -644,10 +658,12 @@ async function main() {
 						const pid = getChromePid();
 						if (pid > 0) await showChromeWindow(pid);
 						await showChromiumWindowNormal();
+						await raiseBrowserWindow();
 					} else {
 						// May be minimized to the taskbar — restore if so.
 						const visible = await isChromiumWindowVisible();
 						if (!visible) await showChromiumWindowNormal();
+						await raiseBrowserWindow();
 					}
 					await openTabInChrome(
 						port,
@@ -687,6 +703,7 @@ async function main() {
 				}
 			}
 			await showChromiumWindowNormal();
+			await raiseBrowserWindow();
 			log("main", "info", "double-click: showed browser", { port });
 		} catch (err) {
 			log("main", "error", "failed to show browser on double-click", {

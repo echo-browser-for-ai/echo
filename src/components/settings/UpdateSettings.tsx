@@ -36,6 +36,32 @@ interface AppInfo {
 	lastCheckedAt: string | null;
 }
 
+/**
+ * Release notes arrive as HTML: electron-updater reads GitHub's release .atom
+ * feed, whose <content> is rendered HTML. Printing it raw showed users `<h3>`
+ * and `<p>` tags, so flatten it to readable plain text.
+ *
+ * Deliberately NOT dangerouslySetInnerHTML — these notes are remote content and
+ * have no business executing inside the app.
+ */
+function readableNotes(raw: string): string {
+	if (!/[<&]/.test(raw)) return raw;
+	try {
+		const doc = new DOMParser().parseFromString(raw, "text/html");
+		doc.querySelectorAll("br").forEach((el) => el.replaceWith("\n"));
+		doc.querySelectorAll("li").forEach((el) => el.prepend("\u2022 "));
+		doc
+			.querySelectorAll("p, li, h1, h2, h3, h4, h5, h6, div, tr")
+			.forEach((el) => el.append("\n"));
+		return (doc.body.textContent ?? "")
+			.replace(/[ \t]+\n/g, "\n")
+			.replace(/\n{3,}/g, "\n\n")
+			.trim();
+	} catch {
+		return raw;
+	}
+}
+
 export default function UpdateSettings() {
 	const [app, setApp] = useState<AppInfo | null>(null);
 	const [chromium, setChromium] = useState<AppInfo | null>(null);
@@ -133,6 +159,31 @@ export default function UpdateSettings() {
 		return info ? `v${info.currentVersion}` : fallback;
 	}
 
+	/** One plain sentence saying what is actually happening right now. */
+	function stateText(info: AppInfo | null, kind: "app" | "engine"): string {
+		if (!info) return "Connecting to the update service…";
+		switch (info.state) {
+			case "checking":
+				return "Checking for updates…";
+			case "up-to-date":
+				return `Up to date (${versionLabel(info, "?")}).`;
+			case "available":
+				return `Version ${info.latestVersion} found — downloading in the background.`;
+			case "downloading":
+				return `Downloading ${info.latestVersion ?? "update"} — ${info.progress}%`;
+			case "downloaded":
+				return kind === "app"
+					? `${info.latestVersion} is downloaded and ready to install.`
+					: `${info.latestVersion} is downloaded and ready to apply.`;
+			case "error":
+				return "The last update check failed.";
+			default:
+				return info.latestVersion
+					? `Newest version seen: ${info.latestVersion}.`
+					: "No update check has run yet.";
+		}
+	}
+
 	// ── Render ──────────────────────────────────────────────
 
 	return (
@@ -142,10 +193,17 @@ export default function UpdateSettings() {
 				<Group mb="sm" justify="space-between">
 					<Group gap="xs">
 						<IconAppWindow size={20} />
-						<Text fw={600}>Echo — {versionLabel(app, "…")}</Text>
+						<Text fw={600}>Echo</Text>
+						<Text size="sm" c="dimmed">
+							installed {versionLabel(app, "…")}
+						</Text>
 					</Group>
 					{statePill(app)}
 				</Group>
+
+				<Text size="sm" c="dimmed" mb="sm">
+					{stateText(app, "app")}
+				</Text>
 
 				{app?.state === "downloading" && (
 					<Progress value={app.progress} size="sm" mb="sm" />
@@ -153,7 +211,7 @@ export default function UpdateSettings() {
 
 				{app?.releaseNotes && (
 					<Code block mb="sm" style={{ maxHeight: 120, overflow: "auto" }}>
-						{app.releaseNotes}
+						{readableNotes(app.releaseNotes)}
 					</Code>
 				)}
 
@@ -201,8 +259,9 @@ export default function UpdateSettings() {
 				<Group mb="sm" justify="space-between">
 					<Group gap="xs">
 						<IconServer size={20} />
-						<Text fw={600}>
-							Chromium Engine — {versionLabel(chromium, "…")}
+						<Text fw={600}>Chromium Engine</Text>
+						<Text size="sm" c="dimmed">
+							installed {versionLabel(chromium, "…")}
 						</Text>
 					</Group>
 					{chromium ? (
@@ -214,13 +273,17 @@ export default function UpdateSettings() {
 					)}
 				</Group>
 
+				<Text size="sm" c="dimmed" mb="sm">
+					{stateText(chromium, "engine")}
+				</Text>
+
 				{chromium?.state === "downloading" && (
 					<Progress value={chromium.progress} size="sm" mb="sm" />
 				)}
 
 				{chromium?.releaseNotes && (
 					<Code block mb="sm" style={{ maxHeight: 120, overflow: "auto" }}>
-						{chromium.releaseNotes}
+						{readableNotes(chromium.releaseNotes)}
 					</Code>
 				)}
 

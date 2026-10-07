@@ -2,6 +2,14 @@
 
 All notable changes to Echo are documented here. Installers are on the [Releases page](https://github.com/echo-browser-for-ai/echo/releases).
 
+## 0.2.7 — 2026-10-07
+### Fixed
+- **Tray → Show (and double-clicking the tray icon) now brings the window to the front.** It was being restored but left behind whatever you were looking at, so it seemed like nothing happened until you clicked the taskbar icon. The window is now un-minimised only when it is genuinely minimised — so a maximised window stays maximised — and is then properly activated.
+- **Update notes are readable again.** Release notes were displayed as raw HTML (`<h3>`, `<p>`, and so on) because they come from GitHub's release feed. They are now shown as plain text.
+
+### Improved
+- **The Updates panel now says what is actually happening.** Each card shows the version you have installed and a plain status line — "Checking…", "Downloading 0.2.8 — 42%", "downloaded and ready to install" — so it is clear whether an update is in progress.
+
 ## 0.2.6 — 2026-10-07
 - **No functional changes.** Verification build confirming that updating Echo no longer touches browsing data: this update was installed over 0.2.5 and the existing browser profile (logins, cookies, history, new-tab shortcuts) was left intact.
 

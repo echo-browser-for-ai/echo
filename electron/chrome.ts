@@ -67,10 +67,12 @@ function echowinExePath(): string {
 }
 
 /**
- * Run echowin.exe to hide (SW_HIDE) or show (SW_SHOW) all visible top-level
- * windows owned by the Chromium process. SW_HIDE fully removes the window from
- * screen AND the taskbar (CDP minimize only minimizes to the taskbar). Returns
- * true if echowin acted on >=1 window (exit 0).
+ * Run echowin.exe to hide (SW_HIDE) or show all top-level windows owned by the
+ * Chromium process. SW_HIDE fully removes the window from screen AND the
+ * taskbar (CDP minimize only minimizes to the taskbar). "show" also brings the
+ * window to the FRONT: showing without activating left it behind whatever the
+ * user was looking at, so tray Show looked like it did nothing until they
+ * clicked the taskbar icon. Returns true if echowin acted on >=1 window.
  */
 function runWinHelper(pid: number, action: "hide" | "show"): Promise<boolean> {
 	const code = action === "hide" ? "0" : "5";
@@ -123,7 +125,7 @@ export async function hideChromeWindow(pid: number): Promise<boolean> {
 	return ok;
 }
 
-/** Show previously-hidden Chromium windows via SW_SHOW. */
+/** Show Chromium's window and bring it to the front (un-hides if hidden). */
 export async function showChromeWindow(pid: number): Promise<boolean> {
 	const ok = await runWinHelper(pid, "show");
 	if (ok) windowHidden = false;

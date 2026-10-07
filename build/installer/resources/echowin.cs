@@ -13,7 +13,7 @@
 // (csc.exe ships with .NET Framework at C:\Windows\Microsoft.NET\Framework64\v4.0.30319\)
 //
 // USAGE:
-//   echowin.exe <pid> <0=hide | 5=show>
+//   echowin.exe <pid> <0=hide | 5=show+activate>
 // Prints the count of windows it acted on to stdout. Exit 0 if >=1 window was
 // found and acted on, 1 if none were found, 2 on bad args.
 
@@ -37,6 +37,28 @@ public class EchoWin
 
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool BringWindowToTop(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentThreadId();
+
+    private const int SW_HIDE = 0;
+    private const int SW_SHOW = 5;
+    private const int SW_RESTORE = 9;
 
     private const string BROWSER_WIN_CLASS = "Chrome_WidgetWin_1";
 
@@ -69,6 +91,48 @@ public class EchoWin
         return true;
     }
 
+    /// <summary>
+    /// Un-hide the window and genuinely bring it to the front.
+    ///
+    /// Showing alone is not enough: Windows leaves the window behind whatever
+    /// the user is looking at, so "show from tray" appeared to do nothing until
+    /// they clicked the taskbar icon. Two details matter:
+    ///   1. Only call SW_RESTORE when the window is genuinely minimised.
+    ///      SW_RESTORE also un-maximises, which would undo the maximisation
+    ///      Echo applies separately via CDP.
+    ///   2. SetForegroundWindow is refused while another process owns the
+    ///      foreground, so attach to the foreground thread for the duration.
+    /// </summary>
+    private static void ShowAndActivate(IntPtr hWnd)
+    {
+        ShowWindow(hWnd, SW_SHOW);
+        if (IsIconic(hWnd)) ShowWindow(hWnd, SW_RESTORE);
+
+        uint currentThread = GetCurrentThreadId();
+        IntPtr foreground = GetForegroundWindow();
+        uint foregroundProcess = 0;
+        uint foregroundThread = foreground == IntPtr.Zero
+            ? 0
+            : GetWindowThreadProcessId(foreground, out foregroundProcess);
+
+        bool attached = false;
+        if (foregroundThread != 0 && foregroundThread != currentThread)
+        {
+            attached = AttachThreadInput(currentThread, foregroundThread, true);
+        }
+
+        BringWindowToTop(hWnd);
+        SetForegroundWindow(hWnd);
+
+        if (attached) AttachThreadInput(currentThread, foregroundThread, false);
+
+        // Report the outcome on stderr so it lands in Echo's log. Windows can
+        // silently refuse SetForegroundWindow, and "did the window actually come
+        // to the front?" is otherwise impossible to answer after the fact.
+        Console.Error.WriteLine(
+            "foreground=" + (GetForegroundWindow() == hWnd ? "yes" : "no"));
+    }
+
     private static int Main(string[] args)
     {
         if (args.Length < 2)
@@ -95,7 +159,14 @@ public class EchoWin
         int count = 0;
         foreach (var h in handles)
         {
-            ShowWindow(h, action);
+            if (action == SW_HIDE)
+            {
+                ShowWindow(h, SW_HIDE);
+            }
+            else
+            {
+                ShowAndActivate(h);
+            }
             count++;
         }
 
