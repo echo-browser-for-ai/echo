@@ -21,10 +21,9 @@ import {
 	killChrome,
 	getCdpPort,
 	getChromePid,
-	isChromeWindowHidden,
 	hideChromeWindow,
 	probeChromeWindow,
-	showChromeWindow,
+	showChromeWindowMaximized,
 } from "./chrome.js";
 import { writeLockfile, deleteLockfile } from "./lockfile.js";
 import { log } from "./log.js";
@@ -41,12 +40,7 @@ import {
 	shouldAutoRegister,
 } from "./mcp-registration.js";
 import { registerIpc } from "./ipc/index.js";
-import {
-	openTab,
-	hideChromiumWindow,
-	showChromiumWindowNormal,
-	isChromiumWindowVisible,
-} from "./cdp-client.js";
+import { openTab, hideChromiumWindow } from "./cdp-client.js";
 import { applyStealth } from "./stealth.js";
 import {
 	initAppUpdater,
@@ -557,15 +551,18 @@ async function main() {
 	appTray.setToolTip("Echo");
 
 	/**
-	 * Bring the Chromium window to the front. The echowin helper's "show"
-	 * un-hides (a no-op when already visible) and activates the window.
-	 * Without this the window is restored but stays behind whatever the user is
-	 * looking at, so tray Show and double-click looked like they did nothing
-	 * until the taskbar icon was clicked.
+	 * Un-hide, maximise and activate the browser window in one native call.
+	 * Every "the user wants to see the browser" path goes through this.
+	 *
+	 * Windows does the maximising, not CDP: once the window has been hidden with
+	 * SW_HIDE, Chromium's own window state goes stale (it reports maximized while
+	 * the real window sits at its restore rect), so a CDP maximise is a silent
+	 * no-op and the user gets a half-size window.
 	 */
-	async function raiseBrowserWindow(): Promise<void> {
+	async function showBrowserForUser(reason: string): Promise<boolean> {
 		const pid = getChromePid();
-		if (pid > 0) await showChromeWindow(pid);
+		if (pid <= 0) return false;
+		return showChromeWindowMaximized(pid, reason);
 	}
 
 	const trayMenu = Menu.buildFromTemplate([
@@ -576,22 +573,15 @@ async function main() {
 					const port = getCdpPort();
 					if (port === 0) {
 						await launchChrome();
-						await raiseBrowserWindow();
 						return;
 					}
-					const pid = getChromePid();
-					const state = await probeChromeWindow(pid);
-					if (state.visible && !state.iconic) {
-						// Already on screen — nothing to restore, just make sure it is in front.
-						await raiseBrowserWindow();
-						return;
-					}
-					if (!state.visible) {
-						// Hidden off-screen by echowin — un-hide it before restoring.
-						await showChromeWindow(pid);
-					}
-					const ok = await showChromiumWindowNormal();
-					await raiseBrowserWindow();
+					const state = await probeChromeWindow(getChromePid());
+					log("main", "info", "show browser", {
+						visibleBefore: state.visible,
+						iconicBefore: state.iconic,
+					});
+					// One native call: un-hide, maximise, activate.
+					const ok = await showBrowserForUser("tray:show");
 					if (!ok) {
 						notify("Echo - Error", "Could not restore browser window");
 					}
@@ -608,7 +598,7 @@ async function main() {
 					const pid = getChromePid();
 					let hidden = false;
 					if (pid > 0) {
-						hidden = await hideChromeWindow(pid);
+						hidden = await hideChromeWindow(pid, "tray:hide");
 					}
 					if (!hidden) {
 						// echowin failed — fall back to CDP minimize (leaves a taskbar entry).
@@ -632,10 +622,14 @@ async function main() {
 					const port = getCdpPort();
 					log("main", "info", "Show Settings clicked", { port, settingsPort });
 					if (port > 0) {
+						// "Show Settings" means the user wants to SEE it — un-hide and
+						// raise first, otherwise the tab opens in a hidden window.
+						await showBrowserForUser("tray:settings");
 						await openTabInChrome(port, `http://127.0.0.1:${settingsPort}/`);
 					} else {
 						const cdpPort = await launchChrome();
 						await openTabInChrome(cdpPort, `http://127.0.0.1:${settingsPort}/`);
+						await showBrowserForUser("tray:settings");
 					}
 				} catch (err) {
 					log("main", "error", "failed to show settings", { err: String(err) });
@@ -654,17 +648,9 @@ async function main() {
 					if (port === 0) {
 						// Browser dead — launch it (visible + maximized by default).
 						port = await launchChrome();
-					} else if (isChromeWindowHidden()) {
-						// Hidden via echowin SW_HIDE — un-hide, then restore via CDP.
-						const pid = getChromePid();
-						if (pid > 0) await showChromeWindow(pid);
-						await showChromiumWindowNormal();
-						await raiseBrowserWindow();
 					} else {
-						// May be minimized to the taskbar — restore if so.
-						const visible = await isChromiumWindowVisible();
-						if (!visible) await showChromiumWindowNormal();
-						await raiseBrowserWindow();
+						// Un-hide + maximise + activate in one native call.
+						await showBrowserForUser("tray:donate");
 					}
 					await openTabInChrome(
 						port,
@@ -697,14 +683,7 @@ async function main() {
 			if (port === 0) {
 				port = await launchChrome();
 			}
-			if (isChromeWindowHidden()) {
-				const pid = getChromePid();
-				if (pid > 0) {
-					await showChromeWindow(pid);
-				}
-			}
-			await showChromiumWindowNormal();
-			await raiseBrowserWindow();
+			await showBrowserForUser("tray:double-click");
 			log("main", "info", "double-click: showed browser", { port });
 		} catch (err) {
 			log("main", "error", "failed to show browser on double-click", {

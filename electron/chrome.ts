@@ -26,6 +26,17 @@ let forceQuit = false;
 let windowHidden = false;
 
 /**
+ * The latest visibility the user/system actually asked for.
+ *
+ * Every hide/show retry loop re-checks this before each attempt and abandons
+ * itself if it no longer matches. Without it, a hide loop started by
+ * close-to-tray (which retries for up to 5s until Chromium's window exists)
+ * could still be running when the user clicked Show, and its next attempt hid
+ * the window they had just brought up.
+ */
+let desiredVisible = true;
+
+/**
  * Find the active Chromium engine executable.
  * Delegates to engine-store.ts, which checks active.json first
  * (Phase 3 downloads will live in %LOCALAPPDATA%\Echo\chromium\)
@@ -74,15 +85,45 @@ function echowinExePath(): string {
  * user was looking at, so tray Show looked like it did nothing until they
  * clicked the taskbar icon. Returns true if echowin acted on >=1 window.
  */
-function runWinHelper(pid: number, action: "hide" | "show"): Promise<boolean> {
-	const code = action === "hide" ? "0" : "5";
+function runWinHelper(
+	pid: number,
+	action: "hide" | "show" | "showmax",
+	reason: string,
+): Promise<boolean> {
+	const code =
+		action === "hide" ? "0" : action === "showmax" ? "3" : "5";
 	return new Promise<boolean>((resolve) => {
 		let attempts = 0;
 		const maxAttempts = 10;
 
 		const tryOnce = () => {
+			// Abandon if a newer request changed the intent. This is the fix for
+			// "Show Browser brings the window up, then it hides itself a moment
+			// later": the retry loop below can outlive the action that started it.
+			const intentMatches =
+				action === "hide" ? !desiredVisible : desiredVisible;
+			if (!intentMatches) {
+				log("chrome", "info", `echowin ${action} abandoned (superseded)`, {
+					pid,
+					reason,
+					attempts,
+				});
+				resolve(false);
+				return;
+			}
+			// ── DO NOT SET windowsHide: true HERE ──────────────────────────────
+			// windowsHide puts STARTF_USESHOWWINDOW + SW_HIDE into the child's
+			// STARTUPINFO, and Windows then SILENTLY OVERRIDES that child's first
+			// ShowWindow call with SW_HIDE. "Show" therefore behaved as hide while
+			// SetForegroundWindow still returned true — so this file logged
+			// "foreground=yes" for a window that never appeared. That was the whole
+			// "Show Browser does nothing / flashes then vanishes" bug.
+			// echowin.exe is built as a WINDOWS-subsystem binary (-target:winexe)
+			// precisely so it needs no console window and can be spawned with
+			// windowsHide: false without any console flash.
+			// ──────────────────────────────────────────────────────────────────
 			const child = spawn(echowinExePath(), [String(pid), code], {
-				windowsHide: true,
+				windowsHide: false,
 			});
 			let stderr = "";
 			child.stderr?.on("data", (chunk: Buffer) => {
@@ -102,7 +143,7 @@ function runWinHelper(pid: number, action: "hide" | "show"): Promise<boolean> {
 					"chrome",
 					ok ? "info" : "warn",
 					`echowin ${action} ${ok ? "ok" : "no-windows/failed"}`,
-					{ pid, exitCode, stderr: stderr.slice(0, 200), attempts },
+					{ pid, reason, exitCode, stderr: stderr.slice(0, 200), attempts },
 				);
 				resolve(ok);
 			});
@@ -119,15 +160,44 @@ function runWinHelper(pid: number, action: "hide" | "show"): Promise<boolean> {
 }
 
 /** Hide all Chromium windows via SW_HIDE (fully gone — no screen, no taskbar). */
-export async function hideChromeWindow(pid: number): Promise<boolean> {
-	const ok = await runWinHelper(pid, "hide");
+export async function hideChromeWindow(
+	pid: number,
+	reason = "unspecified",
+): Promise<boolean> {
+	desiredVisible = false;
+	const ok = await runWinHelper(pid, "hide", reason);
 	if (ok) windowHidden = true;
 	return ok;
 }
 
 /** Show Chromium's window and bring it to the front (un-hides if hidden). */
-export async function showChromeWindow(pid: number): Promise<boolean> {
-	const ok = await runWinHelper(pid, "show");
+export async function showChromeWindow(
+	pid: number,
+	reason = "unspecified",
+): Promise<boolean> {
+	desiredVisible = true;
+	const ok = await runWinHelper(pid, "show", reason);
+	if (ok) windowHidden = false;
+	return ok;
+}
+
+/**
+ * Show Chromium's window MAXIMISED and bring it to the front, in one call.
+ *
+ * This is the one to use for every "user wants to see the browser" path.
+ * Windows does the maximising rather than CDP, because Chromium's own idea of
+ * the window state goes stale the moment the window is hidden with SW_HIDE — it
+ * reports windowState "maximized" while the real window sits at its small
+ * restore rect, which made the CDP maximise a silent no-op and left the user
+ * staring at a half-size window. Measured on a real window: CDP normal→maximized
+ * ends at 955x1022, whereas a native SW_SHOWMAXIMIZED gives the full 1936x1048.
+ */
+export async function showChromeWindowMaximized(
+	pid: number,
+	reason = "unspecified",
+): Promise<boolean> {
+	desiredVisible = true;
+	const ok = await runWinHelper(pid, "showmax", reason);
 	if (ok) windowHidden = false;
 	return ok;
 }
@@ -159,7 +229,7 @@ export async function probeChromeWindow(
 
 	return new Promise<ChromeWindowState>((resolve) => {
 		const child = spawn(echowinExePath(), [String(pid), "1"], {
-			windowsHide: true,
+			windowsHide: false,
 		});
 		let stdout = "";
 		let stderr = "";
@@ -272,6 +342,12 @@ export async function launchChrome(opts?: {
 		"--disable-component-update",
 		"--disable-sync",
 		"--disable-features=Translate,TranslateUI",
+		// Stop Chromium creating its "Restore pages?" bubble after an unclean
+		// exit. That bubble shares the Chrome_WidgetWin_1 class with the real
+		// browser frame, so it confused the native window helper (it was visible
+		// while the real window was hidden, and it stole foreground emphasis).
+		// Keeping it from existing is the root-cause fix; echowin also filters it.
+		"--hide-crash-restore-bubble",
 		"--window-name=Echo",
 		hidden ? "--start-minimized" : "--start-maximized",
 		`--load-extension=${extDir}`,
@@ -293,7 +369,7 @@ export async function launchChrome(opts?: {
 	// left the window — and its taskbar entry — on screen for ~700ms on every
 	// close, which showed up as a flash before it disappeared to the tray.
 	if (hidden && chromeChild.pid) {
-		void hideChromeWindow(chromeChild.pid).catch(() => {});
+		void hideChromeWindow(chromeChild.pid, "launch:hidden-early").catch(() => {});
 	}
 
 	// Watchdog: respawn if Chromium crashes
@@ -327,7 +403,10 @@ export async function launchChrome(opts?: {
 				.then(async () => {
 					const newPid = chromeChild?.pid;
 					if (newPid && newPid > 0) {
-						const hidden = await hideChromeWindow(newPid);
+						const hidden = await hideChromeWindow(
+							newPid,
+							"watchdog:restart-hidden",
+						);
 						log(
 							"chrome",
 							hidden ? "info" : "warn",

@@ -2,6 +2,19 @@
 
 All notable changes to Echo are documented here. Installers are on the [Releases page](https://github.com/echo-browser-for-ai/echo/releases).
 
+## 0.2.9 — 2026-10-07
+### Fixed
+- **Show / Hide now actually works — properly this time.** Four separate faults were stacked on top of each other, which is why earlier attempts kept looking fixed while the window still misbehaved:
+  - Windows silently overrides a helper program's *first* "show window" call with the state it was launched with, so **"Show" was really hiding the window** — while still reporting success. The helper is now built so that cannot happen.
+  - Chromium's "Restore pages?" popup shares its window type with the real browser window. It was visible while the browser was hidden, so Echo believed the window was already on screen — and the popup stole the focus. It is now ignored, and suppressed at the source.
+  - Closing to the tray starts a hide that keeps retrying for up to five seconds. If you clicked Show during that time, the retry could hide the window you had just brought up. Retries now abandon themselves.
+  - Restoring the window pinned it to its small saved size, so Echo reported the window as maximised while you were looking at a half-size one.
+- **The window now comes back maximised**, in front of everything else, and stays there.
+
+### Improved
+- The tray menu is now two clear items — **Show Browser** and **Hide Browser** — instead of one ambiguous toggle.
+- Tray actions record *why* they ran, so any future problem is diagnosable from the log instead of guessed at.
+
 ## 0.2.8 — 2026-10-07
 ### Fixed
 - **Show/Hide no longer does the opposite of what you asked.** Echo used to ask Chromium whether the window was visible — but Chromium cannot see a window that has been hidden, so it always answered "visible". Combined with a state flag that reset whenever the browser restarted, the toggle could hide a window you were trying to show. Echo now asks the native helper, which reads the real window state from Windows.

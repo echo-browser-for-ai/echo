@@ -176,16 +176,39 @@ export async function showChromiumWindowNormal(): Promise<boolean> {
     const windowId = result?.windowId
     if (!windowId) return false
 
-    // Two-step restore: first exit minimized, then maximize to fill screen
-    await cdpCommand(port, 'Browser.setWindowBounds', {
-      windowId,
-      bounds: { windowState: 'normal' }
-    })
-    await cdpCommand(port, 'Browser.setWindowBounds', {
-      windowId,
-      bounds: { windowState: 'maximized' }
-    })
-    log('cdp', 'info', 'restored window via CDP', { windowId })
+    // Only leave the minimised state if that is genuinely where the window is.
+    //
+    // The old code always applied 'normal' first "to exit minimized state", and
+    // that pinned the window to its small restore rect: Chromium then recorded
+    // 'maximized' without actually maximising the real Win32 window, so the two
+    // disagreed — CDP reported maximized while the user saw a small window.
+    // Measured on a real window: normal→maximized leaves 955x1022, whereas
+    // maximizing directly gives the full -8,-8,1928,1040.
+    if (result?.bounds?.windowState === 'minimized') {
+      await cdpCommand(port, 'Browser.setWindowBounds', {
+        windowId,
+        bounds: { windowState: 'normal' }
+      })
+    }
+
+    // Chromium can also silently ignore the maximise when it arrives in the same
+    // instant as the native un-hide, so apply it, check, and retry once rather
+    // than trusting the call.
+    const applyMaximize = async (): Promise<string | undefined> => {
+      await cdpCommand(port, 'Browser.setWindowBounds', {
+        windowId,
+        bounds: { windowState: 'maximized' }
+      })
+      const check = await cdpCommand(port, 'Browser.getWindowForTarget', {})
+      return check?.bounds?.windowState
+    }
+
+    let state = await applyMaximize()
+    if (state !== 'maximized') {
+      await new Promise((resolve) => setTimeout(resolve, 250))
+      state = await applyMaximize()
+    }
+    log('cdp', 'info', 'restored window via CDP', { windowId, state })
     return true
   } catch (err) {
     log('cdp', 'error', 'failed to restore via CDP', { err: String(err) })
