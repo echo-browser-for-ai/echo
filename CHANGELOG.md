@@ -2,6 +2,9 @@
 
 All notable changes to Echo are documented here. Installers are on the [Releases page](https://github.com/echo-browser-for-ai/echo/releases).
 
+## 0.2.6 — 2026-10-07
+- **No functional changes.** Verification build confirming that updating Echo no longer touches browsing data: this update was installed over 0.2.5 and the existing browser profile (logins, cookies, history, new-tab shortcuts) was left intact.
+
 ## 0.2.5 — 2026-10-07
 ### Fixed (important)
 - **Updating Echo no longer deletes your browsing data.** The uninstaller was wiping the browser profile, and Windows runs the uninstaller when installing a new version over an old one — so every update signed you out of every site, cleared history, and removed your new-tab shortcuts. The destructive step has been removed, with a comment explaining why it must not come back. Browsing data is now only cleared when you ask for it, via **Settings → Advanced → Clear browsing data**.
