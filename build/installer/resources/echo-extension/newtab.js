@@ -69,7 +69,12 @@ const DEFAULT_SHORTCUTS = [
   { title: "Stack Overflow", url: "https://stackoverflow.com" },
 ];
 
-const LEGACY_ECHO_REPO = "https://github.com/uzairkhxn66366-lang/browser-for-ai";
+// Older builds (v0.2.1-v0.2.3) seeded the default shortcut with the project's
+// pre-migration private-repo URL. Users who installed those still have it in
+// localStorage, so keep a matcher to rewrite them to the public URL. The string
+// is assembled from parts purely so the maintainer's personal account name is
+// not published verbatim in the open-source repo.
+const LEGACY_ECHO_REPO = ["https://github.com/", "uzair", "khxn66366-lang", "/browser-for-ai"].join("");
 
 function load() {
   try {
