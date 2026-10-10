@@ -13,3 +13,16 @@ dev-server.*
 test-output/
 .vscode/
 .pi-subagents/
+
+# ── Credential-shaped files ─────────────────────────────────────────
+# browser_storage_state used to write 768 live auth cookies here as
+# PLAINTEXT json, one `git add .` away from committing real credentials.
+# It is now DPAPI-encrypted into ~/.echo/sessions (see echocrypt.cs), but these
+# patterns stay as defence in depth: an unencrypted artifact should never be
+# committable even if some future tool writes one.
+storage-state*.json
+storage-state*.json.enc
+*storage-state*
+*session-state*.json
+*.json.enc
+.echo/

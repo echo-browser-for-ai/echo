@@ -112,6 +112,7 @@ jobs:
             "build/installer/resources/chromium",
             "build/installer/resources/echo-extension/manifest.json",
             "build/installer/resources/echowin.exe",
+            "build/installer/resources/echocrypt.exe",
             "build/installer/resources/node_modules/@playwright/mcp/cli.js",
             "build/installer/resources/node_modules/pdfjs-dist/legacy/build/pdf.mjs",
             "build/installer/resources/node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
@@ -149,7 +150,8 @@ jobs:
             "mcp-shared.mjs",
             "node.exe",
             "node_modules/@playwright/mcp/cli.js",
-            "node_modules/pdfjs-dist/legacy/build/pdf.mjs"
+            "node_modules/pdfjs-dist/legacy/build/pdf.mjs",
+            "echocrypt.exe"
           )) {
             if (-not (Test-Path (Join-Path $packed $f))) { throw "Packaged app is missing $f" }
           }

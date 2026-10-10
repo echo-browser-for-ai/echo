@@ -31,7 +31,12 @@
     { "from": "build/installer/resources/echo-mcp-cleanup.mjs", "to": "echo-mcp-cleanup.mjs" },
     { "from": "build/installer/resources/echo-extension", "to": "echo-extension" },
     { "from": "build/installer/resources/echo-extension.crx", "to": "echo-extension.crx" },
-    { "from": "build/installer/resources/echowin.exe", "to": "echowin.exe" }
+    { "from": "build/installer/resources/echowin.exe", "to": "echowin.exe" },
+    // DPAPI encryption helper. Saved storage states (cookies + localStorage)
+    // are encrypted at rest with this; the launcher passes its absolute path
+    // to the patched @playwright/mcp via ECHO_CRYPTO_EXE. If it is missing,
+    // browser_storage_state refuses to save rather than writing plaintext.
+    { "from": "build/installer/resources/echocrypt.exe", "to": "echocrypt.exe" }
   ],
   "extraFiles": [
     { "from": "installer/cleanup-mcp.bat", "to": "cleanup-mcp.bat" }

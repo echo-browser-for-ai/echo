@@ -173,8 +173,21 @@ async function resolveCdpPortOrWake() {
   const OUTPUT_DIR = join(homedir(), '.echo', 'output');
   const OUTPUT_MAX_SIZE_BYTES = 52428800; // 50 MB
 
+  // Saved storage states (cookies + localStorage) are encrypted at rest with
+  // Windows DPAPI by echocrypt.exe, which ships beside this launcher. The
+  // patched @playwright/mcp reads this env var; if it is missing or the file
+  // does not exist, browser_storage_state REFUSES to save rather than writing
+  // plaintext. Saved state is DPAPI-encrypted at rest.
+  //
+  // Passing the absolute path beats letting the patch guess one: the dev
+  // launcher lives at the repo root while the staged build lives under
+  // build/installer/resources, and __dirname inside the patched bundle is
+  // neither of those.
+  const CRYPTO_EXE = join(__dirname, 'echocrypt.exe');
+
   const child = spawn(process.execPath, [mcpBin, `--cdp-endpoint=${cdpEndpoint}`, '--allow-unrestricted-file-access', `--caps=${CAPS}`, `--output-dir=${OUTPUT_DIR}`, `--output-max-size=${OUTPUT_MAX_SIZE_BYTES}`], {
     stdio: 'inherit',
+    env: { ...process.env, ECHO_CRYPTO_EXE: CRYPTO_EXE },
   });
 
   child.on('exit', (code) => process.exit(code || 0));
