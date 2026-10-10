@@ -26,6 +26,7 @@
     { "from": "build/installer/resources/node.exe", "to": "node.exe" },
     { "from": "build/installer/resources/node_modules", "to": "node_modules" },
     { "from": "build/installer/resources/echo-mcp-launcher.js", "to": "echo-mcp-launcher.js" },
+    { "from": "build/installer/resources/echo-pdf-server.mjs", "to": "echo-pdf-server.mjs" },
     { "from": "electron/mcp-shared.mjs", "to": "mcp-shared.mjs" },
     { "from": "build/installer/resources/echo-mcp-cleanup.mjs", "to": "echo-mcp-cleanup.mjs" },
     { "from": "build/installer/resources/echo-extension", "to": "echo-extension" },

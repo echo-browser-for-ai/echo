@@ -81,7 +81,20 @@ async function resolveCdpPort() {
 
   const mcpBin = join(projectRoot, 'node_modules', '@playwright', 'mcp', 'cli.js');
   const cdpEndpoint = `http://127.0.0.1:${cdpPort}`;
-  const child = spawn(process.execPath, [mcpBin, `--cdp-endpoint=${cdpEndpoint}`, '--allow-unrestricted-file-access'], {
+
+  /**
+   * Keep this in lockstep with echo-mcp-launcher.js (production):
+   *   --caps          dev used to omit this, which quietly changed the toolset
+   *                   (23 tools in dev vs 63 in the shipped app — dev testing
+   *                   did not represent the product).
+   *   --output-dir    artifacts go to Echo's folder, not the AI client's cwd.
+   *   --output-max-size  disk eviction only (not a context cap); 50 MB.
+   */
+  const CAPS = 'vision,pdf,storage,devtools,testing';
+  const OUTPUT_DIR = join(homedir(), '.echo', 'output');
+  const OUTPUT_MAX_SIZE_BYTES = 52428800; // 50 MB
+
+  const child = spawn(process.execPath, [mcpBin, `--cdp-endpoint=${cdpEndpoint}`, '--allow-unrestricted-file-access', `--caps=${CAPS}`, `--output-dir=${OUTPUT_DIR}`, `--output-max-size=${OUTPUT_MAX_SIZE_BYTES}`], {
     stdio: 'inherit',
   });
 

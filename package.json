@@ -7,20 +7,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && electron-builder",
-    "build:server": "tsc -p mcp-server/tsconfig.json",
-    "build:win": "tsc && vite build && npm run build:server && npm run vendor:runtime && bash scripts/build-win.sh",
     "build:installer": "npm run vendor:runtime && npm run build",
-    "postinstall": "node scripts/patch-playwright-mcp.mjs && patch-package",
     "vendor:runtime": "bash scripts/vendor-runtime.sh",
-    "test": "npm run test:smoke && npm run test:installer && npm run test:layout && npm run test:regression",
-    "test:smoke": "node mcp-server/test-smoke.mjs",
-    "test:installer": "node --test mcp-server/test-installer.mjs",
-    "test:layout": "node --test mcp-server/test-layout.mjs",
-    "test:regression": "node --test mcp-server/test-regression.mjs",
+    "postinstall": "node scripts/patch-playwright-mcp.mjs && patch-package",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview",
-    "dev:server": "tsx mcp-server/src/index.ts",
-    "start:server": "node mcp-server/dist/index.js"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@ghostery/adblocker-electron": "^2.18.1",
@@ -32,7 +23,7 @@
     "electron-log": "^5.4.4",
     "electron-updater": "^6.8.9",
     "get-port": "^7.2.0",
-    "pdfjs-dist": "^6.1.200",
+    "pdfjs-dist": "4.10.38",
     "playwright-core": "^1.61.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

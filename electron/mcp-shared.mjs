@@ -31,7 +31,12 @@ import os from 'node:os'
 /**
  * @typedef {'registered'|'stale'|'absent'|'not-installed'|'unsupported'|'error'} AppStatusKind
  * @typedef {{ id: string, name: string, status: AppStatusKind, path?: string, note?: string }} AppStatus
- * @typedef {{ command: string, args: string[] }} EchoEntry
+ * @typedef {object} EchoEntry
+ * @property {string} command  Program that runs both MCP servers.
+ * @property {string[]} args   Launcher arguments (args[0] is the launcher path).
+ * @property {string} [pdfServer]  Where echo-pdf-server.mjs actually is, when it
+ *   is not simply beside the launcher — dev puts the launcher at the repo root
+ *   and the server under build/installer/resources.
  */
 
 // ── Path helpers ──────────────────────────────────────────
@@ -43,12 +48,38 @@ export const LOCALAPPDATA = process.env.LOCALAPPDATA || path.join(HOME, 'AppData
 const ECHO_KEY = 'echo'
 const CODEX_HEADER = '[mcp_servers.echo]'
 
+// Echo registers TWO MCP servers. The browser tools come from Microsoft's
+// @playwright/mcp, started by echo-mcp-launcher.js; Echo's own tools (today just
+// read_pdf) live in echo-pdf-server.mjs, which sits beside it.
+//
+// They are separate processes on purpose. Sitting in front of @playwright/mcp as
+// a proxy would put Echo in the path of every browser call, so one bug here would
+// break all browsing. Running alongside keeps them independent: either can be
+// fixed or replaced without touching the other.
+const ECHO_PDF_KEY = 'echo-pdf'
+const CODEX_PDF_HEADER = '[mcp_servers.echo-pdf]'
+const PDF_SERVER_FILE = 'echo-pdf-server.mjs'
+
+/**
+ * These two lines are the only thing a fresh agent is told before it decides
+ * whether Echo is worth looking at, so they name the exact tools rather than
+ * describing them in prose. pi cuts a server description at 250 characters.
+ */
+const BROWSER_DESCRIPTION =
+  'Browser. browser_navigate=open URL, browser_evaluate=read page text, ' +
+  'browser_snapshot/click/type=interact, browser_network_request=raw JSON, ' +
+  'browser_run_code_unsafe=fetch as the user. Use for logged-in, JS or bot-walled pages.'
+
+const PDF_DESCRIPTION =
+  'read_pdf(source, pages?, max_chars?)=text out of any PDF, from a URL or a saved file. ' +
+  'Chrome shows PDFs but exposes no text to the page, so browser tools cannot read one; this can.'
+
 // ── Target registry ───────────────────────────────────────
 
 /**
  * @typedef {'mcpServers'|'opencode'|'vscode'|'toml'|'unsupported'} Handler
  * @typedef {{ path: string, requireDir?: string }} ConfigFile
- * @typedef {{ id: string, name: string, files: ConfigFile[], handler: Handler, extra?: (e: EchoEntry) => Record<string, unknown>, note?: string }} Target
+ * @typedef {{ id: string, name: string, files: ConfigFile[], handler: Handler, extra?: (e: EchoEntry, key: string) => Record<string, unknown>, note?: string }} Target
  */
 
 /** @type {Target[]} */
@@ -58,7 +89,14 @@ export const TARGETS = [
     name: 'pi',
     files: [{ path: path.join(HOME, '.pi', 'agent', 'mcp.json') }],
     handler: 'mcpServers',
-    extra: () => ({ lifecycle: 'lazy' }),
+    // pi's own config fields, saved beside command/args. `direct` declares every
+    // tool up front rather than hiding them behind a search: the tool list is a
+    // stable prefix that prompt caching handles well, and an agent that can see
+    // every tool never wastes a turn hunting for one or misses its favourite.
+    extra: (_entry, key) => ({
+      exposure: 'direct',
+      description: key === ECHO_PDF_KEY ? PDF_DESCRIPTION : BROWSER_DESCRIPTION,
+    }),
   },
   {
     id: 'claude-code',
@@ -239,11 +277,12 @@ function tomlEscape(s) {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 }
 
-function codexBlockLines(entry) {
+function codexBlockLines(server) {
+  const args = Array.isArray(server.args) ? server.args : []
   return [
-    CODEX_HEADER,
-    `command = "${tomlEscape(entry.command)}"`,
-    `args = [${entry.args.map(a => '"' + tomlEscape(a) + '"').join(', ')}]`,
+    server.header,
+    `command = "${tomlEscape(server.command)}"`,
+    `args = [${args.map(a => '"' + tomlEscape(a) + '"').join(', ')}]`,
   ]
 }
 
@@ -256,25 +295,53 @@ function looksLikeEcho(commandOrArgs) {
   return str.includes('echo-mcp-launcher')
 }
 
+/** The servers Echo registers for a target: the browser, and Echo's own tools. */
+function serversFor(entry) {
+  const args = Array.isArray(entry.args) ? entry.args : []
+  const servers = [{ key: ECHO_KEY, header: CODEX_HEADER, command: entry.command, args }]
+
+  // Usually the PDF server sits beside the launcher. Dev is the exception: the
+  // launcher is at the repo root there while the server is staged under
+  // build/installer/resources, so getEchoEntry() passes the path explicitly.
+  const launcher = typeof args[0] === 'string' ? args[0] : ''
+  const pdfServer = typeof entry.pdfServer === 'string' && entry.pdfServer
+    ? entry.pdfServer
+    : launcher ? path.join(path.dirname(launcher), PDF_SERVER_FILE) : ''
+
+  if (pdfServer && entry.command) {
+    servers.push({ key: ECHO_PDF_KEY, header: CODEX_PDF_HEADER, command: entry.command, args: [pdfServer] })
+  }
+  return servers
+}
+
 async function fileInstall(t, file, entry) {
+  const servers = serversFor(entry)
   if (t.handler === 'toml') {
     const existing = await readTextSafe(file) ?? ''
     const doc = parseToml(existing)
-    doc.blocks.set(CODEX_HEADER, codexBlockLines(entry))
-    if (!doc.order.includes(CODEX_HEADER)) doc.order.push(CODEX_HEADER)
+    for (const server of servers) {
+      doc.blocks.set(server.header, codexBlockLines(server))
+      if (!doc.order.includes(server.header)) doc.order.push(server.header)
+    }
     await writeTextAtomic(file, serializeToml(doc))
     return
   }
   const data = (await readJsonSafe(file)) ?? {}
-  if (t.handler === 'mcpServers') {
-    if (!data.mcpServers || typeof data.mcpServers !== 'object') data.mcpServers = {}
-    data.mcpServers[ECHO_KEY] = { ...entry, ...(t.extra ? t.extra(entry) : {}) }
-  } else if (t.handler === 'opencode') {
-    if (!data.mcp || typeof data.mcp !== 'object') data.mcp = {}
-    data.mcp[ECHO_KEY] = { type: 'local', command: [entry.command, ...entry.args], enabled: true }
-  } else if (t.handler === 'vscode') {
-    if (!data.servers || typeof data.servers !== 'object') data.servers = {}
-    data.servers[ECHO_KEY] = { type: 'stdio', command: entry.command, args: entry.args }
+  for (const server of servers) {
+    if (t.handler === 'mcpServers') {
+      if (!data.mcpServers || typeof data.mcpServers !== 'object') data.mcpServers = {}
+      data.mcpServers[server.key] = {
+        command: server.command,
+        args: server.args,
+        ...(t.extra ? t.extra(entry, server.key) : {}),
+      }
+    } else if (t.handler === 'opencode') {
+      if (!data.mcp || typeof data.mcp !== 'object') data.mcp = {}
+      data.mcp[server.key] = { type: 'local', command: [server.command, ...(Array.isArray(server.args) ? server.args : [])], enabled: true }
+    } else if (t.handler === 'vscode') {
+      if (!data.servers || typeof data.servers !== 'object') data.servers = {}
+      data.servers[server.key] = { type: 'stdio', command: server.command, args: server.args }
+    }
   }
   await writeJsonAtomic(file, data)
 }
@@ -284,9 +351,12 @@ async function fileUninstall(t, file) {
     const existing = await readTextSafe(file)
     if (existing == null) return
     const doc = parseToml(existing)
-    if (!doc.blocks.has(CODEX_HEADER)) return
-    doc.blocks.delete(CODEX_HEADER)
-    doc.order = doc.order.filter(k => k !== CODEX_HEADER)
+    const headers = [CODEX_HEADER, CODEX_PDF_HEADER]
+    if (!headers.some(h => doc.blocks.has(h))) return
+    for (const header of headers) {
+      doc.blocks.delete(header)
+      doc.order = doc.order.filter(k => k !== header)
+    }
     await writeTextAtomic(file, serializeToml(doc))
     return
   }
@@ -294,10 +364,13 @@ async function fileUninstall(t, file) {
   if (data == null) return
   if (t.handler === 'mcpServers' && data.mcpServers) {
     delete data.mcpServers[ECHO_KEY]
+    delete data.mcpServers[ECHO_PDF_KEY]
   } else if (t.handler === 'opencode' && data.mcp) {
     delete data.mcp[ECHO_KEY]
+    delete data.mcp[ECHO_PDF_KEY]
   } else if (t.handler === 'vscode' && data.servers) {
     delete data.servers[ECHO_KEY]
+    delete data.servers[ECHO_PDF_KEY]
   }
   await writeJsonAtomic(file, data)
 }
@@ -311,16 +384,21 @@ async function fileStatus(t, file) {
     if (!blk) return 'absent'
     const hasCommand = blk.some(l => l.startsWith('command ='))
     const hasEcho = blk.some(l => looksLikeEcho(l))
-    return hasCommand && hasEcho ? 'registered' : 'stale'
+    if (!hasCommand || !hasEcho) return 'stale'
+    // A config written before Echo's PDF server existed holds only the browser
+    // entry. Report stale so the 7-day auto-register adds the missing server
+    // instead of leaving those users without read_pdf.
+    return doc.blocks.has(CODEX_PDF_HEADER) ? 'registered' : 'stale'
   }
   const data = await readJsonSafe(file)
   if (data == null) return 'absent'
-  let node
-  if (t.handler === 'mcpServers') node = data.mcpServers?.[ECHO_KEY]
-  else if (t.handler === 'opencode') node = data.mcp?.[ECHO_KEY]
-  else if (t.handler === 'vscode') node = data.servers?.[ECHO_KEY]
+  let node, pdfNode
+  if (t.handler === 'mcpServers') { node = data.mcpServers?.[ECHO_KEY]; pdfNode = data.mcpServers?.[ECHO_PDF_KEY] }
+  else if (t.handler === 'opencode') { node = data.mcp?.[ECHO_KEY]; pdfNode = data.mcp?.[ECHO_PDF_KEY] }
+  else if (t.handler === 'vscode') { node = data.servers?.[ECHO_KEY]; pdfNode = data.servers?.[ECHO_PDF_KEY] }
   if (!node) return 'absent'
-  return looksLikeEcho(node.command) || looksLikeEcho(node.args) ? 'registered' : 'stale'
+  if (!(looksLikeEcho(node.command) || looksLikeEcho(node.args))) return 'stale'
+  return pdfNode ? 'registered' : 'stale'
 }
 
 // ── Per-target install / uninstall / status ───────────────

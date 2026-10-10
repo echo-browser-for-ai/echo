@@ -32,6 +32,8 @@ export type { AppStatus, AppStatusKind } from "./mcp-shared.mjs";
 export interface EchoEntry {
 	command: string;
 	args: string[];
+	/** Where echo-pdf-server.mjs lives, when it is not beside the launcher. */
+	pdfServer?: string;
 }
 
 export interface RegistrationResult {
@@ -58,6 +60,12 @@ export function getEchoEntry(): EchoEntry {
 				path.join(DEV_PROJECT_ROOT, "build/installer/resources/node.exe"),
 			),
 			args: [toWin(path.join(DEV_PROJECT_ROOT, "echo-mcp-launcher-dev.cjs"))],
+			// The PDF server is staged under build/installer/resources, not at the
+			// repo root where the dev launcher sits, so it is passed explicitly
+			// instead of being derived from the launcher's directory.
+			pdfServer: toWin(
+				path.join(DEV_PROJECT_ROOT, "build/installer/resources/echo-pdf-server.mjs"),
+			),
 		};
 	}
 	// Production (installed) — use the REAL resources path. process.resourcesPath

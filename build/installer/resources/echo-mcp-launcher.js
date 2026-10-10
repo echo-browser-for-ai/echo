@@ -140,7 +140,40 @@ async function resolveCdpPortOrWake() {
 
   const mcpBin = join(__dirname, 'node_modules', '@playwright', 'mcp', 'cli.js');
   const cdpEndpoint = `http://127.0.0.1:${cdpPort}`;
-  const child = spawn(process.execPath, [mcpBin, `--cdp-endpoint=${cdpEndpoint}`, '--allow-unrestricted-file-access'], {
+
+  /**
+   * Every capability @playwright/mcp offers.
+   *
+   * Without --caps it starts with 23 tools. With all five groups it starts with
+   * 63: cookies, localStorage/sessionStorage, save-the-page-as-PDF, coordinate
+   * clicking, element highlight, session video, tracing, and the verify helpers.
+   *
+   * Before removing any of these, know why they are all on:
+   *   - The tool list is a stable prefix sent before the conversation, which is
+   *     the position prompt caching handles best, so repeat turns cost a
+   *     fraction of the first. An AI that can see every tool also stops wasting
+   *     a turn searching for one, and never misses a capability it did not
+   *     think to look for.
+   *   - A capability name that a future @playwright/mcp does not recognise is
+   *     ignored rather than fatal (verified against 0.0.77: a deliberately
+   *     bogus name still started the server), so this line cannot break Echo.
+   */
+  const CAPS = 'vision,pdf,storage,devtools,testing';
+
+  /**
+   * Output artifacts (page snapshots, console logs) MUST NOT land in the AI
+   * client's working directory — @playwright/mcp defaults to clientInfo.cwd,
+   * which pollutes whichever project the agent runs from. Point every artifact
+   * at Echo's own folder instead, and bound that folder to 50 MB.
+   *
+   * NOTE: --output-max-size is DISK eviction only (oldest files deleted
+   * first). It does NOT cap what goes into the model's context — that is the
+   * evaluate cap + inline-snapshot patches in scripts/patch-playwright-mcp.mjs.
+   */
+  const OUTPUT_DIR = join(homedir(), '.echo', 'output');
+  const OUTPUT_MAX_SIZE_BYTES = 52428800; // 50 MB
+
+  const child = spawn(process.execPath, [mcpBin, `--cdp-endpoint=${cdpEndpoint}`, '--allow-unrestricted-file-access', `--caps=${CAPS}`, `--output-dir=${OUTPUT_DIR}`, `--output-max-size=${OUTPUT_MAX_SIZE_BYTES}`], {
     stdio: 'inherit',
   });
 

@@ -140,7 +140,7 @@ async function main() {
 	const manifest = {
 		version,
 		revision: rev,
-		url: "REPLACE_WITH_ECHO_RELEASES_DOWNLOAD_URL",
+		url: "REPLACE_WITH_ECHO_DOWNLOAD_URL",
 		sha256: sha,
 		size,
 		minAppVersion: "0.2.0",
@@ -156,7 +156,7 @@ async function main() {
 
 	console.log("\nDone. Next steps:");
 	console.log(
-		"1. Upload the zip to echo-releases as a chromium-<version> release",
+		"1. Upload the zip to echo-browser-for-ai/echo as a chromium-<version> release",
 	);
 	console.log("2. Paste the download URL into chromium-latest.json");
 	console.log(

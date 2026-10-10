@@ -64,6 +64,29 @@ jobs:
           Copy-Item "node_modules/jsonc-parser" "$dest/jsonc-parser" -Recurse -Force
           Copy-Item "node_modules/@iarna" "$dest/@iarna" -Recurse -Force
 
+          # PDF text for echo-pdf-server.mjs. Only the runtime pieces ship: the
+          # legacy ESM build, its worker, the standard fonts, and the CJK cmaps.
+          # Trimming the .map files and the non-legacy build keeps this at ~5 MB
+          # instead of the package's full 36 MB.
+          #
+          # pdfjs-dist is pinned to 4.x on purpose, for two reasons:
+          #   1. v5 loads @napi-rs/canvas to polyfill DOMMatrix, and fails with
+          #      "DOMMatrix is not defined" when that native module is absent.
+          #      It is an optional dependency weighing ~37 MB and is not shipped.
+          #   2. v5.5+ requires Node 20.19 and v5.7+ requires Node 22.13, while
+          #      the node.exe staged above is 20.18.3.
+          # v4 needs neither. Raising this pin without checking both facts breaks
+          # PDF reading at runtime, and only at runtime.
+          $pdfjsSrc = "node_modules/pdfjs-dist"
+          $pdfjsDst = "$dest/pdfjs-dist"
+          New-Item -ItemType Directory -Force "$pdfjsDst/legacy/build" | Out-Null
+          Copy-Item "$pdfjsSrc/package.json" "$pdfjsDst/" -Force
+          if (Test-Path "$pdfjsSrc/LICENSE") { Copy-Item "$pdfjsSrc/LICENSE" "$pdfjsDst/" -Force }
+          Copy-Item "$pdfjsSrc/legacy/build/pdf.mjs" "$pdfjsDst/legacy/build/" -Force
+          Copy-Item "$pdfjsSrc/legacy/build/pdf.worker.mjs" "$pdfjsDst/legacy/build/" -Force
+          Copy-Item "$pdfjsSrc/standard_fonts" "$pdfjsDst/standard_fonts" -Recurse -Force
+          Copy-Item "$pdfjsSrc/cmaps" "$pdfjsDst/cmaps" -Recurse -Force
+
       - name: Download Chromium engine (from chromium-latest release)
         shell: pwsh
         run: |
@@ -74,6 +97,33 @@ jobs:
           if ($hash -ne $manifest.sha256) { throw "Engine checksum mismatch!" }
           New-Item -ItemType Directory -Force "build/installer/resources/chromium" | Out-Null
           tar -xf "$env:RUNNER_TEMP\engine.zip" -C "build/installer/resources/chromium"
+
+      # electron-builder only WARNS when an extraResources source is missing, so a
+      # forgotten `git add -f` for a gitignored file would silently produce an
+      # installer with no browser tools and no PDF reader. Fail loudly instead.
+      - name: Verify the MCP runtime files exist before packaging
+        shell: pwsh
+        run: |
+          $required = @(
+            "build/installer/resources/echo-mcp-launcher.js",
+            "build/installer/resources/echo-mcp-cleanup.mjs",
+            "build/installer/resources/echo-pdf-server.mjs",
+            "build/installer/resources/node.exe",
+            "build/installer/resources/chromium",
+            "build/installer/resources/echo-extension/manifest.json",
+            "build/installer/resources/echowin.exe",
+            "build/installer/resources/node_modules/@playwright/mcp/cli.js",
+            "build/installer/resources/node_modules/pdfjs-dist/legacy/build/pdf.mjs",
+            "build/installer/resources/node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+            "build/installer/resources/node_modules/pdfjs-dist/standard_fonts",
+            "build/installer/resources/node_modules/pdfjs-dist/cmaps"
+          )
+          $missing = $required | Where-Object { -not (Test-Path $_) }
+          if ($missing) {
+            $missing | ForEach-Object { Write-Host "MISSING: $_" }
+            throw "Required runtime files are missing - refusing to build a broken installer."
+          }
+          Write-Host "All required runtime files are present."
 
       - name: Build installer
         shell: pwsh
@@ -89,6 +139,21 @@ jobs:
         run: |
           Get-ChildItem release/EchoSetup -File | Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,1)}}
           Get-Content release/EchoSetup/latest.yml
+
+          # electron-builder copies extraResources into the packaged app; confirm
+          # both MCP servers actually arrived, rather than trusting its warning.
+          $packed = "release/EchoSetup/win-unpacked/resources"
+          foreach ($f in @(
+            "echo-mcp-launcher.js",
+            "echo-pdf-server.mjs",
+            "mcp-shared.mjs",
+            "node.exe",
+            "node_modules/@playwright/mcp/cli.js",
+            "node_modules/pdfjs-dist/legacy/build/pdf.mjs"
+          )) {
+            if (-not (Test-Path (Join-Path $packed $f))) { throw "Packaged app is missing $f" }
+          }
+          Write-Host "Packaged MCP runtime verified."
 
       - name: Upload build artifact (available on every run)
         uses: actions/upload-artifact@v4
