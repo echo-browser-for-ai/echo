@@ -2,6 +2,16 @@
 
 All notable changes to Echo are documented here. Installers are on the [Releases page](https://github.com/echo-browser-for-ai/echo/releases).
 
+## 0.2.10 — 2026-10-10
+### New
+- **The AI can now read PDFs.** Chrome shows PDFs on screen but exposes none of their text, so this used to be impossible. The new `read_pdf` tool extracts a PDF's text directly — including PDFs behind a login (the AI downloads the file with its browser tools first, then reads it).
+- **The AI's browser toolkit grew from 23 tools to 63.** New capabilities include cookies and local/session storage, console and network inspection, saving pages as PDF, file uploads and drag-and-drop, coordinate-based clicking, and built-in verification helpers.
+
+### Fixed
+- **Huge page results can no longer flood the conversation.** Long `evaluate` output is cut off with a clear notice (the full result is still saved to a file when one is requested), and small page snapshots return directly instead of always being written to a `.yml` file the AI has to go open.
+- **The AI now waits for pages to finish loading.** Navigation settles on network-idle (up to 5 seconds) after the page loads, instead of reading it the moment the basic structure appears — so the AI sees finished pages, not half-loaded ones.
+- **Debug files stay in Echo's folder.** Snapshots and console logs now go to `~/.echo/output` instead of piling up in whatever folder your AI app was launched from.
+
 ## 0.2.9 — 2026-10-07
 ### Fixed
 - **Show / Hide now actually works — properly this time.** Four separate faults were stacked on top of each other, which is why earlier attempts kept looking fixed while the window still misbehaved:
