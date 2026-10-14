@@ -43,6 +43,9 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
+        # zizmor: ignore[cache-poisoning] cache-mode:none denies all cache
+        # access, so the action's cache-capable post-step is inert. Drop once
+        # bundled zizmor knows cache-mode (1.31+).
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
