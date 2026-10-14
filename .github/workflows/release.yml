@@ -26,6 +26,10 @@ on:
 permissions:
   contents: write
 
+# Release builds must never read or write the Actions cache (zizmor
+# cache-poisoning). This also makes setup-node's cache-capable post-step inert.
+cache-mode: none
+
 jobs:
   build:
     name: Build Windows installer
@@ -42,8 +46,6 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
-          # No npm cache on purpose: release builds must not trust a cache
-          # (zizmor cache-poisoning).
 
       - name: Install dependencies
         run: npm ci
