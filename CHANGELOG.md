@@ -2,6 +2,15 @@
 
 All notable changes to Echo are documented here. Installers are on the [Releases page](https://github.com/echo-browser-for-ai/echo/releases).
 
+## 0.2.12 — 2026-10-14
+### Improved
+- **Pi gets a shorter list up front, and the rest one call away.** Pi is now told about the seven tools a browsing loop needs first — navigate, evaluate, snapshot, click, type, wait_for, run_code_unsafe — while the other 56 stay installed and are fetched when the AI actually needs them. All other AI apps are unchanged and keep the full list.
+- **A setup guide for AI clients ships with Echo.** On first launch Echo writes a small `echo-browser` skill into Pi's and Claude Code's skills folders, covering how to drive the browser and what to do if tools look missing. Files you edited yourself are never overwritten.
+
+## 0.2.11 — 2026-10-10
+### Security
+- **Saved browser sessions are encrypted at rest.** Storage-state files (cookies and localStorage) are now DPAPI-encrypted under `~/.echo/sessions/`, and cookie values are masked in tool results unless explicitly revealed.
+
 ## 0.2.10 — 2026-10-10
 ### New
 - **The AI can now read PDFs.** Chrome shows PDFs on screen but exposes none of their text, so this used to be impossible. The new `read_pdf` tool extracts a PDF's text directly — including PDFs behind a login (the AI downloads the file with its browser tools first, then reads it).

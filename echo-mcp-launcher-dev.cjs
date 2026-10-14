@@ -96,6 +96,9 @@ async function resolveCdpPort() {
 
   const child = spawn(process.execPath, [mcpBin, `--cdp-endpoint=${cdpEndpoint}`, '--allow-unrestricted-file-access', `--caps=${CAPS}`, `--output-dir=${OUTPUT_DIR}`, `--output-max-size=${OUTPUT_MAX_SIZE_BYTES}`], {
     stdio: 'inherit',
+    // Dev layout differs from the packaged one: this launcher sits at the repo
+    // root while echocrypt.exe is staged under build/installer/resources.
+    env: { ...process.env, ECHO_CRYPTO_EXE: join(__dirname, 'build', 'installer', 'resources', 'echocrypt.exe') },
   });
 
   child.on('exit', (code) => process.exit(code || 0));

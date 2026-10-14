@@ -28,6 +28,9 @@
     { "from": "build/installer/resources/echo-mcp-launcher.js", "to": "echo-mcp-launcher.js" },
     { "from": "build/installer/resources/echo-pdf-server.mjs", "to": "echo-pdf-server.mjs" },
     { "from": "electron/mcp-shared.mjs", "to": "mcp-shared.mjs" },
+    // The echo-browser skill, shipped so the app can write it into each AI
+    // client's skills directory. Tracked source lives in installer/skills/.
+    { "from": "installer/skills", "to": "skills" },
     { "from": "build/installer/resources/echo-mcp-cleanup.mjs", "to": "echo-mcp-cleanup.mjs" },
     { "from": "build/installer/resources/echo-extension", "to": "echo-extension" },
     { "from": "build/installer/resources/echo-extension.crx", "to": "echo-extension.crx" },

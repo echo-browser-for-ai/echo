@@ -51,6 +51,13 @@ const toWin = (p: string): string => p.replace(/\//g, "\\");
  *  so we can't reliably derive the repo path — hardcode (matches prior code). */
 const DEV_PROJECT_ROOT = "C:/Users/uzair/Coding/Practice/July/01-Echo";
 
+/** The shipped echo-browser skill folder. Same dev/prod split as getEchoEntry(). */
+export function getSkillsDir(): string {
+	return app.isPackaged
+		? path.join(process.resourcesPath, "skills")
+		: path.join(DEV_PROJECT_ROOT, "installer", "skills");
+}
+
 /** The canonical command + args each app should run to start Echo's MCP. */
 export function getEchoEntry(): EchoEntry {
 	if (!app.isPackaged) {
@@ -81,7 +88,7 @@ export function getEchoEntry(): EchoEntry {
 // ── Public API (delegates to shared, Electron-free logic) ─
 
 export async function registerMcpConfigs(): Promise<RegistrationResult> {
-	const apps = await installAll(getEchoEntry());
+	const apps = await installAll(getEchoEntry(), { skillsDir: getSkillsDir() });
 	const success = apps.some((a) => a.status === "registered");
 	if (success) {
 		const settings = loadSettings();

@@ -25,6 +25,7 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
+import crypto from 'node:crypto'
 
 // ── Types (JSDoc; mirrored by electron/mcp-shared.d.ts for TS consumers) ───
 
@@ -61,14 +62,29 @@ const CODEX_PDF_HEADER = '[mcp_servers.echo-pdf]'
 const PDF_SERVER_FILE = 'echo-pdf-server.mjs'
 
 /**
- * These two lines are the only thing a fresh agent is told before it decides
- * whether Echo is worth looking at, so they name the exact tools rather than
- * describing them in prose. pi cuts a server description at 250 characters.
+ * The seven tools a browsing loop reaches for first. They stay `direct` on the
+ * pi target; the other 56 ride the server's `codemode` exposure and are fetched
+ * only when wanted.
+ */
+const HOT_PATH = [
+  'browser_navigate',
+  'browser_evaluate',
+  'browser_snapshot',
+  'browser_click',
+  'browser_type',
+  'browser_wait_for',
+  'browser_run_code_unsafe',
+]
+
+/**
+ * The only thing a fresh agent is told before it decides whether Echo is worth
+ * looking at, so it front-loads the seven direct tools and stays under pi's
+ * 250-character cut-off.
  */
 const BROWSER_DESCRIPTION =
-  'Browser. browser_navigate=open URL, browser_evaluate=read page text, ' +
-  'browser_snapshot/click/type=interact, browser_network_request=raw JSON, ' +
-  'browser_run_code_unsafe=fetch as the user. Use for logged-in, JS or bot-walled pages.'
+  'Browser. Direct: navigate, evaluate, snapshot, click, type, wait_for, run_code_unsafe. ' +
+  '56 more (cookies, storage, screenshots, PDF, network, tabs, video) fetched on demand. ' +
+  'Use for logged-in or JS pages.'
 
 const PDF_DESCRIPTION =
   'read_pdf(source, pages?, max_chars?)=text out of any PDF, from a URL or a saved file. ' +
@@ -89,14 +105,18 @@ export const TARGETS = [
     name: 'pi',
     files: [{ path: path.join(HOME, '.pi', 'agent', 'mcp.json') }],
     handler: 'mcpServers',
-    // pi's own config fields, saved beside command/args. `direct` declares every
-    // tool up front rather than hiding them behind a search: the tool list is a
-    // stable prefix that prompt caching handles well, and an agent that can see
-    // every tool never wastes a turn hunting for one or misses its favourite.
-    extra: (_entry, key) => ({
-      exposure: 'direct',
-      description: key === ECHO_PDF_KEY ? PDF_DESCRIPTION : BROWSER_DESCRIPTION,
-    }),
+    // pi's own config fields, saved beside command/args. Seven hot tools stay
+    // declared; the other 56 ride the server's `codemode` exposure and are
+    // fetched on demand (sandbox-verified 2026-10-14). echo-pdf stays direct —
+    // one tool, not worth splitting.
+    extra: (_entry, key) => {
+      if (key === ECHO_PDF_KEY) return { exposure: 'direct', description: PDF_DESCRIPTION }
+      return {
+        exposure: 'codemode',
+        toolExposure: Object.fromEntries(HOT_PATH.map((name) => [name, 'direct'])),
+        description: BROWSER_DESCRIPTION,
+      }
+    },
   },
   {
     id: 'claude-code',
@@ -449,21 +469,180 @@ async function targetStatus(t) {
   return { id: t.id, name: t.name, status: best, path: lastPath }
 }
 
+// ── echo-browser skill ────────────────────────────────────
+//
+// The skill tells an AI client how to drive Echo: which tools it can see, how
+// to reach the ones it cannot, and the traps that cost turns. Pi advertises a
+// skill by name + description and loads the body only when a task matches, so
+// this costs ~85 tokens until it is actually needed.
+//
+// `.echo-managed.json` records a sha256 of every file Echo wrote. A file whose
+// hash no longer matches was edited by the user, and is never overwritten or
+// deleted — Echo only ever replaces what it wrote and nobody touched.
+
+const SKILL_NAME = 'echo-browser'
+const SKILL_MANIFEST = '.echo-managed.json'
+
+/** Written only where the parent app folder already exists (same rule as TARGETS.requireDir).
+ *
+ * Deliberately NOT written to `~/.agents/skills/`, even though Pi also reads it:
+ * Pi warns on a duplicate skill name and keeps only the first, so writing the same
+ * skill to two locations Pi scans would produce a collision warning for no gain. */
+const SKILL_DIRS = [
+  {
+    id: 'pi',
+    name: 'pi',
+    dir: path.join(HOME, '.pi', 'agent', 'skills', SKILL_NAME),
+    requireDir: path.join(HOME, '.pi'),
+  },
+  {
+    id: 'claude-code',
+    name: 'Claude Code',
+    dir: path.join(HOME, '.claude', 'skills', SKILL_NAME),
+    requireDir: path.join(HOME, '.claude'),
+  },
+]
+
+/** sha256 of a file, or null if it does not exist / cannot be read. */
+async function sha256File(p) {
+  try { return crypto.createHash('sha256').update(await fs.readFile(p)).digest('hex') }
+  catch { return null }
+}
+
+/** Relative paths of every file under root, excluding the manifest. */
+async function listFilesRecursive(root, rel = '') {
+  let entries
+  try { entries = await fs.readdir(path.join(root, rel), { withFileTypes: true }) }
+  catch { return [] }
+  const out = []
+  for (const e of entries) {
+    const r = rel ? path.join(rel, e.name) : e.name
+    if (e.isDirectory()) out.push(...await listFilesRecursive(root, r))
+    else if (e.isFile() && e.name !== SKILL_MANIFEST) out.push(r)
+  }
+  return out
+}
+
+async function rmdirIfEmpty(p) {
+  try { await fs.rmdir(p) } catch { /* not empty, or already gone */ }
+}
+
+/** Copy the skill into every client's skills directory that applies.
+ * @param {string} skillsDir  Absolute path to the shipped skills folder.
+ * @returns {Promise<AppStatus[]>} */
+export async function installSkill(skillsDir) {
+  const apps = []
+  if (!skillsDir) return apps
+  // Source root is the skill's OWN folder (skillsDir is the parent, so more
+  // skills can ship later without changing this).
+  const source = await listFilesRecursive(path.join(skillsDir, SKILL_NAME))
+  if (source.length === 0) return apps
+
+  for (const t of SKILL_DIRS) {
+    const label = `${t.name} skill`
+    if (t.requireDir && !(await exists(t.requireDir))) {
+      apps.push({ id: `skill:${t.id}`, name: label, status: 'not-installed', note: 'app not present' })
+      continue
+    }
+
+    const manifestPath = path.join(t.dir, SKILL_MANIFEST)
+    let prev = { managedBy: ECHO_KEY, files: {} }
+    try { prev = (await readJsonSafe(manifestPath)) || prev } catch { /* unreadable manifest — rewrite it */ }
+
+    const files = {}
+    const foreign = []
+    for (const rel of source) {
+      const to = path.join(t.dir, rel)
+      const srcHash = await sha256File(path.join(skillsDir, SKILL_NAME, rel))
+      const onDisk = await sha256File(to)
+      const recorded = prev.files?.[rel]
+
+      // Already byte-identical — ours, or an identical copy. Adopt it.
+      if (onDisk && onDisk === srcHash) { files[rel] = srcHash; continue }
+
+      // Present and NOT the last thing Echo wrote: the user's own file, or an
+      // edit to ours. Never touch it, and never record it as ours — recording
+      // it would make the NEXT run read it as ours and overwrite it.
+      if (onDisk && onDisk !== recorded) { foreign.push(rel); continue }
+
+      // Ours and unedited (onDisk === recorded), or absent: write the new copy.
+      await writeTextAtomic(to, await fs.readFile(path.join(skillsDir, SKILL_NAME, rel), 'utf-8'))
+      files[rel] = srcHash
+    }
+    await writeJsonAtomic(manifestPath, { managedBy: ECHO_KEY, files, foreign })
+
+    apps.push({
+      id: `skill:${t.id}`,
+      name: label,
+      status: 'registered',
+      path: t.dir,
+      note: foreign.length ? `${foreign.length} kept (not written by Echo)` : undefined,
+    })
+  }
+  return apps
+}
+
+/** Remove the skill, but only the files Echo wrote and nobody edited.
+ * @returns {Promise<AppStatus[]>} */
+export async function uninstallSkill() {
+  const apps = []
+  for (const t of SKILL_DIRS) {
+    const label = `${t.name} skill`
+    const manifestPath = path.join(t.dir, SKILL_MANIFEST)
+    let manifest = null
+    try { manifest = await readJsonSafe(manifestPath) } catch { /* unreadable — leave it alone */ }
+
+    if (!manifest || manifest.managedBy !== ECHO_KEY) {
+      const present = await exists(t.dir)
+      apps.push({ id: `skill:${t.id}`, name: label, status: present ? 'stale' : 'not-installed', path: present ? t.dir : undefined })
+      continue
+    }
+
+    let kept = 0
+    for (const [rel, hash] of Object.entries(manifest.files || {})) {
+      const p = path.join(t.dir, rel)
+      const onDisk = await sha256File(p)
+      if (onDisk === null) continue
+      if (onDisk === hash) await fs.unlink(p)
+      else kept++
+    }
+
+    if (kept === 0) {
+      await fs.unlink(manifestPath).catch(() => {})
+      await rmdirIfEmpty(path.join(t.dir, 'references'))
+      await rmdirIfEmpty(t.dir)
+    }
+    // A file Echo never wrote is not in manifest.files, so it survives above —
+    // and if any is still there, the directory cannot be removed either.
+    const leftBehind = await exists(t.dir)
+    apps.push({
+      id: `skill:${t.id}`,
+      name: label,
+      status: kept || leftBehind ? 'stale' : 'absent',
+      path: leftBehind ? t.dir : undefined,
+      note: leftBehind ? 'kept (not written by Echo)' : undefined,
+    })
+  }
+  return apps
+}
+
 // ── Aggregate operations (used by app + standalone uninstall) ─────────────
 
 /** Install Echo into every target. Returns per-app status.
  * @param {EchoEntry} entry
+ * @param {{ skillsDir?: string }} [options]  Shipped skills folder; skipped when absent.
  * @returns {Promise<AppStatus[]>} */
-export async function installAll(entry) {
+export async function installAll(entry, options = {}) {
   const apps = []
   for (const t of TARGETS) {
     const res = await targetInstall(t, entry)
     apps.push({ id: t.id, name: t.name, status: res.status, path: res.path, note: res.note })
   }
+  apps.push(...await installSkill(options.skillsDir))
   return apps
 }
 
-/** Remove Echo from every target. Returns per-app resulting status.
+/** Remove Echo from every target, and the skill it wrote. Returns per-app resulting status.
  * @returns {Promise<AppStatus[]>} */
 export async function unregisterAll() {
   const apps = []
@@ -471,6 +650,7 @@ export async function unregisterAll() {
     await targetUninstall(t)
     apps.push(await targetStatus(t))
   }
+  apps.push(...await uninstallSkill())
   return apps
 }
 
