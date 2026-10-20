@@ -51,32 +51,37 @@ async function main() {
 	const rev =
 		process.argv[2] ??
 		(await fetch(LAST_CHANGE_URL).then((r) => r.text())).trim();
+	const reuse = process.argv.includes("--reuse");
 
 	console.log(`Revision: ${rev}`);
 
 	fs.mkdirSync(STAGING, { recursive: true });
 
 	const zipPath = path.join(STAGING, `chrome-win-${rev}.zip`);
-	const extractDir = path.join(STAGING, "chrome-win");
-
-	// 1. Download
-	console.log("Downloading chrome-win.zip (this may take a minute)…");
-	const resp = await fetch(ZIP_URL(rev));
-	if (!resp.ok) throw new Error(`Download failed: HTTP ${resp.status}`);
-	const buf = Buffer.from(await resp.arrayBuffer());
-	fs.writeFileSync(zipPath, buf);
-	console.log(`Downloaded ${(buf.length / 1024 / 1024).toFixed(0)} MB`);
-
-	// 2. Extract
-	fs.rmSync(extractDir, { recursive: true, force: true });
-	fs.mkdirSync(extractDir, { recursive: true });
-	execSync(`tar -xf "${zipPath}" -C "${extractDir}"`, {
-		stdio: "inherit",
-		timeout: 120_000,
-	});
-	fs.rmSync(zipPath, { force: true });
-
+	const extractDir = path.join(STAGING, `chrome-win-${rev}`);
 	const chromeDir = path.join(extractDir, "chrome-win");
+
+	if (reuse && fs.existsSync(path.join(chromeDir, "chrome.dll"))) {
+		console.log(`Reusing extracted engine at ${chromeDir}`);
+	} else {
+		// 1. Download
+		console.log("Downloading chrome-win.zip (this may take a minute)…");
+		const resp = await fetch(ZIP_URL(rev));
+		if (!resp.ok) throw new Error(`Download failed: HTTP ${resp.status}`);
+		const buf = Buffer.from(await resp.arrayBuffer());
+		fs.writeFileSync(zipPath, buf);
+		console.log(`Downloaded ${(buf.length / 1024 / 1024).toFixed(0)} MB`);
+
+		// 2. Extract
+		fs.rmSync(extractDir, { recursive: true, force: true });
+		fs.mkdirSync(extractDir, { recursive: true });
+		execSync(`tar -xf "${zipPath}" -C "${extractDir}"`, {
+			stdio: "inherit",
+			timeout: 120_000,
+		});
+		fs.rmSync(zipPath, { force: true });
+	}
+
 	if (!fs.existsSync(chromeDir))
 		throw new Error(
 			"Unexpected zip structure — expected chrome-win/ folder inside",
@@ -122,7 +127,7 @@ async function main() {
 	const cwd = chromeDir;
 	const entries = fs.readdirSync(cwd);
 	// Use tar to create a zip from the DIRECTORY CONTENTS
-	execSync(`tar -acf "${outZip}" ${entries.join(" ")}`, {
+	execFileSync("tar", ["-acf", outZip, ...entries], {
 		cwd,
 		stdio: "inherit",
 		timeout: 120_000,

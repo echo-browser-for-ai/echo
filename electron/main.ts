@@ -116,7 +116,7 @@ async function handleSettingsSet(req: IncomingMessage, res: ServerResponse) {
 			if (!process.env.VITE_DEV_SERVER_URL) {
 				app.setLoginItemSettings(
 					value
-						? { openAtLogin: true, path: process.execPath, args: ["--hidden"] }
+						? { openAtLogin: true, path: process.execPath }
 						: { openAtLogin: false },
 				);
 			}
@@ -717,7 +717,11 @@ async function main() {
 			}
 		}
 
-		const cdpPort = await launchChrome();
+		const { startMinimized } = loadSettings();
+		if (startMinimized) {
+			log("main", "info", "start minimized — launching Chromium hidden");
+		}
+		const cdpPort = await launchChrome({ hidden: startMinimized });
 		await writeLockfile(cdpPort, process.pid, app.getVersion());
 
 		// Hide navigator.webdriver so websites don't flag Echo as a bot.
@@ -740,11 +744,6 @@ app.on("window-all-closed", () => {
 	// Don't quit — tray app stays running
 });
 
-app.on("before-quit", () => {
-	killChrome();
-	deleteLockfile().catch(() => {});
-});
-
 app.on("activate", () => {
 	// No window to restore — tray is always there
 });
@@ -755,16 +754,30 @@ const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
 	app.quit();
 } else {
+	// Only the primary instance owns Chromium and the lockfile. A secondary
+	// instance's app.quit() must not delete the live lockfile.
+	app.on("before-quit", () => {
+		killChrome();
+		deleteLockfile().catch(() => {});
+	});
+
 	app.on("second-instance", async () => {
-		// Already running — open settings in Chromium
+		// Already running — open settings in Chromium. If Echo started hidden
+		// (start minimized), surface the window first so this isn't a silent no-op.
 		try {
-			const cdpPort = getCdpPort();
-			if (cdpPort > 0) {
-				await openTabInChrome(cdpPort, `http://127.0.0.1:${settingsPort}/`);
-			} else {
-				const newPort = await launchChrome();
-				await openTabInChrome(newPort, `http://127.0.0.1:${settingsPort}/`);
+			let cdpPort = getCdpPort();
+			if (cdpPort <= 0) cdpPort = await launchChrome();
+
+			const pid = getChromePid();
+			const state = await probeChromeWindow(pid);
+			if (!state.found || !state.visible || state.iconic) {
+				const shown = await showChromeWindowMaximized(pid, "app:second-instance");
+				if (!shown) {
+					log("main", "warn", "second instance: could not show browser window");
+				}
 			}
+
+			await openTabInChrome(cdpPort, `http://127.0.0.1:${settingsPort}/`);
 		} catch (err) {
 			log("main", "error", "failed to open settings on second instance", {
 				err: String(err),

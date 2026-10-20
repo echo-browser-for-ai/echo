@@ -1,7 +1,7 @@
 {
   "name": "echo",
   "private": true,
-  "version": "0.2.12",
+  "version": "0.2.13",
   "description": "AI uses your browser, with your logins. One-click setup.",
   "type": "module",
   "scripts": {
@@ -18,7 +18,6 @@
     "@mantine/core": "^9.4.1",
     "@mantine/hooks": "^9.4.1",
     "@mantine/notifications": "^9.4.1",
-    "@modelcontextprotocol/sdk": "^1.29.0",
     "@tabler/icons-react": "^3.44.0",
     "electron-log": "^5.4.4",
     "electron-updater": "^6.8.9",

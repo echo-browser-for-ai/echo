@@ -11,12 +11,14 @@ import { log } from "./log.js";
 // 0 backend files — and were removed 2026-07-17.
 export interface AppSettings {
 	openAtLogin: boolean;
+	startMinimized: boolean;
 	theme: "dark" | "light";
 	mcpRegisteredAt: number | null;
 }
 
 export const DEFAULT_SETTINGS = {
 	openAtLogin: false,
+	startMinimized: false,
 	theme: "dark",
 	mcpRegisteredAt: null,
 } as const;

@@ -13,6 +13,7 @@ import type { Settings } from "../../types/api";
 
 const DEFAULT_SETTINGS: Settings = {
 	openAtLogin: false,
+	startMinimized: false,
 	theme: "dark",
 };
 
@@ -36,7 +37,7 @@ export default function GeneralSettings() {
 	}, []);
 
 	const handleToggle = (
-		key: "openAtLogin" | "theme",
+		key: "openAtLogin" | "startMinimized" | "theme",
 		value: boolean | string,
 	) => {
 		setSettings((prev) => ({ ...prev, [key]: value }) as Settings);
@@ -69,6 +70,24 @@ export default function GeneralSettings() {
 							checked={settings.openAtLogin}
 							onChange={(e) =>
 								handleToggle("openAtLogin", e.currentTarget.checked)
+							}
+						/>
+					</Group>
+					<Group justify="space-between" wrap="nowrap">
+						<div>
+							<Text size="sm" fw={500}>
+								Start minimized
+							</Text>
+							<Text size="xs" c="dimmed">
+								Stay in the system tray; open the browser from the tray
+							</Text>
+						</div>
+						<Switch
+							size="md"
+							color="cyan"
+							checked={settings.startMinimized}
+							onChange={(e) =>
+								handleToggle("startMinimized", e.currentTarget.checked)
 							}
 						/>
 					</Group>

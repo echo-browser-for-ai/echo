@@ -64,7 +64,7 @@ function applyLoginSetting(value: unknown, key: string): void {
   if (process.env.VITE_DEV_SERVER_URL) return
   app.setLoginItemSettings(
     value
-      ? { openAtLogin: true, path: process.execPath, args: ['--hidden'] }
+      ? { openAtLogin: true, path: process.execPath }
       : { openAtLogin: false }
   )
 }

@@ -1,5 +1,6 @@
 export interface Settings {
 	openAtLogin: boolean;
+	startMinimized: boolean;
 	theme: "dark" | "light";
 	mcpRegisteredAt?: number;
 }

@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { app } from "electron";
 import { log } from "./log.js";
 import { writeLockfile } from "./lockfile.js";
-import { getConfigDir } from "./settings-store.js";
+import { getConfigDir, loadSettings } from "./settings-store.js";
 import { getActiveChromiumPath } from "./engine-store.js";
 import { markEngineVerified, maybeRollbackEngine } from "./chromium-updater.js";
 
@@ -277,6 +277,11 @@ export function getChromePid(): number {
 	return chromeChild?.pid ?? 0;
 }
 
+/** User preference: every launch (including crash respawns) starts hidden. */
+function startHidden(): boolean {
+	return loadSettings().startMinimized;
+}
+
 /**
  * Launch bundled Chromium with CDP enabled.
  * Uses an isolated user-data-dir so it doesn't conflict with the user's real Chrome.
@@ -447,7 +452,7 @@ export async function launchChrome(opts?: {
 			if (rolledBack) {
 				// Re-launch once from the rolled-back (bundled) engine.
 				setTimeout(() => {
-					launchChrome().catch((err) => {
+					launchChrome({ hidden: startHidden() }).catch((err) => {
 						log("chrome", "error", "post-rollback launch failed", {
 							err: String(err),
 						});
@@ -463,7 +468,7 @@ export async function launchChrome(opts?: {
 			attempt: rapidExitCount,
 		});
 		setTimeout(() => {
-			launchChrome().catch((err) => {
+			launchChrome({ hidden: startHidden() }).catch((err) => {
 				log("chrome", "error", "failed to respawn Chromium", {
 					err: String(err),
 				});
